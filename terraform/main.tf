@@ -8,7 +8,7 @@ provider "google" {
 
 # create a bucket for storing the dataset
 resource "google_storage_bucket" "dataset_bucket" {
-  name          = "train-data-11923"
+  name          = "train-data-9923"
   location      = var.location
   force_destroy = true
 }
