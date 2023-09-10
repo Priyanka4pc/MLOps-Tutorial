@@ -24,7 +24,7 @@ resource "google_storage_bucket_object" "csv_upload" {
 # create a dataproc cluster
 resource "google_dataproc_cluster" "preprocessing_cluster" {
   name    = "preprocessing-cluster"
-  project = "mlops-project-397918"
+  project = var.project_name
   region  = var.region
   cluster_config {
     master_config {
