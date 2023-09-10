@@ -22,28 +22,28 @@ resource "google_storage_bucket_object" "csv_upload" {
 }
 
 # create a dataproc cluster
-# resource "google_dataproc_cluster" "preprocessing_cluster" {
-#   name    = "preprocessing-cluster"
-#   project = "mlops-project-397918"
-#   region  = var.region
-#   cluster_config {
-#     master_config {
-#       num_instances = 1
-#       machine_type  = "n1-standard-4"
-#     }
-#     worker_config {
-#       num_instances = 2
-#       machine_type  = "n1-standard-4"
-#     }
+resource "google_dataproc_cluster" "preprocessing_cluster" {
+  name    = "preprocessing-cluster"
+  project = "mlops-project-397918"
+  region  = var.region
+  cluster_config {
+    master_config {
+      num_instances = 1
+      machine_type  = "n1-standard-4"
+    }
+    worker_config {
+      num_instances = 2
+      machine_type  = "n1-standard-4"
+    }
 
-#   }
-# }
+  }
+}
 
 # create a bucket to store preprocessing script for dataproc job
-# resource "google_storage_bucket" "script_bucket" {
-#   name     = "pyspark-script-9923"
-#   location = "US"
-# }
+resource "google_storage_bucket" "script_bucket" {
+  name     = "pyspark-script-9923"
+  location = "US"
+}
 
 # included in milestone 2
 # uplaod preprocessing script to bucket
@@ -71,13 +71,13 @@ resource "google_storage_bucket_object" "csv_upload" {
 # }
 
 # create a big query dataset 
-# resource "google_bigquery_dataset" "example_dataset" {
-#   dataset_id = "dataset_9923"
-#   project    = "mlops-project-397918"
-#   labels = {
-#     environment = "development"
-#   }
-# }
+resource "google_bigquery_dataset" "example_dataset" {
+  dataset_id = "dataset_9923"
+  project    = "mlops-project-397918"
+  labels = {
+    environment = "development"
+  }
+}
 
 # create a feature store
 resource "google_vertex_ai_featurestore" "featurestore" {
