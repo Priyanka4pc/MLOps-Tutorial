@@ -17,7 +17,7 @@ resource "google_storage_bucket" "dataset_bucket" {
 resource "google_storage_bucket_object" "csv_upload" {
   name         = "train.csv"
   bucket       = google_storage_bucket.dataset_bucket.name
-  source       = "../data/train.csv"
+  source       = var.data_file
   content_type = "text/csv"
 }
 
@@ -42,38 +42,38 @@ resource "google_dataproc_cluster" "preprocessing_cluster" {
 # create a bucket to store preprocessing script for dataproc job
 resource "google_storage_bucket" "script_bucket" {
   name     = "pyspark-script-9923"
-  location = "US"
+  location = var.location
 }
 
 # included in milestone 2
 # uplaod preprocessing script to bucket
-# resource "google_storage_bucket_object" "python_script_upload" {
-#   name   = "script.py" # Change to your desired object name
-#   bucket = google_storage_bucket.script_bucket.name
-#   source = "../scripts/outlier_detection.py" # Path to your local Python script
-#   content_type = "text/plain" # Change the content type if needed
-# }
+resource "google_storage_bucket_object" "python_script_upload" {
+  name   = "script.py" # Change to your desired object name
+  bucket = google_storage_bucket.script_bucket.name
+  source = var.script_file # Path to your local Python script
+  content_type = "text/plain" # Change the content type if needed
+}
 
 # run the preprocessing script in a dataproc job
-# resource "google_dataproc_job" "pyspark" {
-#   region       = google_dataproc_cluster.preprocessing_cluster.region
-#   force_delete = true
-#   placement {
-#     cluster_name = google_dataproc_cluster.preprocessing_cluster.name
-#   }
+resource "google_dataproc_job" "pyspark" {
+  region       = google_dataproc_cluster.preprocessing_cluster.region
+  force_delete = true
+  placement {
+    cluster_name = google_dataproc_cluster.preprocessing_cluster.name
+  }
 
-#   pyspark_config {
-#     main_python_file_uri = "gs://pyspark-script-9923/script.py"
-#     properties = {
-#       "spark.logConf" = "true"
-#     }
-#   }
-# }
+  pyspark_config {
+    main_python_file_uri = "gs://${google_storage_bucket.script_bucket.name}/${google_storage_bucket_object.python_script_upload.name}"
+    properties = {
+      "spark.logConf" = "true"
+    }
+  }
+}
 
 # create a big query dataset 
 resource "google_bigquery_dataset" "example_dataset" {
   dataset_id = "dataset_9923"
-  project    = "mlops-project-397918"
+  project    = var.project_name
   labels = {
     environment = "development"
   }
