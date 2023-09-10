@@ -48,10 +48,10 @@ resource "google_storage_bucket" "script_bucket" {
 # included in milestone 2
 # uplaod preprocessing script to bucket
 resource "google_storage_bucket_object" "python_script_upload" {
-  name   = "script.py" # Change to your desired object name
-  bucket = google_storage_bucket.script_bucket.name
-  source = var.script_file # Path to your local Python script
-  content_type = "text/plain" # Change the content type if needed
+  name         = "script.py"
+  bucket       = google_storage_bucket.script_bucket.name
+  source       = var.script_file
+  content_type = "text/plain"
 }
 
 # run the preprocessing script in a dataproc job
