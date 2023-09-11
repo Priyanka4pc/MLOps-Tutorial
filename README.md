@@ -9,17 +9,17 @@
     - Create a service account:
       - Go to https://console.cloud.google.com/
       - Click on IAM & Admin
-        ![IAM Page](images/IAM.png)
+        ![Console](images/console.png)
       - Click on Service Accounts
-        ![IAM Page](images/service-account.png)
+        ![Service Account](images/service-account.png)
       - Create a new service account
-        ![IAM Page](images/new-service-account.png)
+        ![New Service Account](images/new-service-account.png)
       - Once the account is created, click on the service account and go to KEYS and click on ADD KEY
-        ![IAM Page](images/create-key.png)
+        ![Create Key](images/create-key.png)
       - Create a json key and once you click on create a credentials json file will be downloaded.
-        ![IAM Page](images/json-key.png)
-    - Enable all the required APIs
-    ![Enabled APIs](images/Enabled_APIs.png)
+        ![JSON Key](images/json-key.png)
+    - Enable all the required APIs - 
+      ![Enabled APIs](images/enabled-apis.png)
         * Cloud Logging API
         * Cloud Monitoring API
         * Cloud Dataproc API
@@ -47,7 +47,7 @@
         git clone <repo-name>
         ```
 
-1. **Infrastructure as Code with Terraform:**
+2. **Infrastructure as Code with Terraform:**
    - Prerequisites:
      - Install Terraform: https://developer.hashicorp.com/terraform/downloads
    - Steps:
