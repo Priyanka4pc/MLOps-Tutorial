@@ -6,7 +6,7 @@ from kfp.dsl import component, Input, Output, Metrics, Model
 
 
 @component(packages_to_install=["scikit-learn", "xgboost", "pandas", "joblib"])
-def train_model_op(model_name: str, model: Output[Model], accuracy: Output[Metrics]):
+def train_model_op(model: Output[Model], accuracy: Output[Metrics]):
     import pandas as pd
     from sklearn.model_selection import train_test_split
     import joblib
@@ -14,27 +14,17 @@ def train_model_op(model_name: str, model: Output[Model], accuracy: Output[Metri
     data = pd.read_csv(
         "https://raw.githubusercontent.com/Priyanka4pc/ml-academy/main/preprocessed.csv"
     )
-    
     X = data.drop(["Price"], axis=1)
     Y = data["Price"]
 
     train_X, test_X, train_Y, test_Y = train_test_split(X, Y, random_state=0)
 
-    if model_name == "LinearRegression":
-        from sklearn.linear_model import LinearRegression
+    from xgboost import XGBRegressor
 
-        model = LinearRegression()
-    elif model_name == "RandomForestRegressor":
-        from sklearn.ensemble import RandomForestRegressor
-
-        model = RandomForestRegressor(max_leaf_nodes=100, random_state=1)
-    elif model_name == "XGBRegressor":
-        from xgboost import XGBRegressor
-
-        model = XGBRegressor()
+    model = XGBRegressor()
 
     model.fit(train_X, train_Y)
-    model_path = f"{model_name}.joblib"
+    model_path = "model.joblib"
     joblib.dump(model, model_path)
     model.uri = model_path
 
@@ -42,7 +32,7 @@ def train_model_op(model_name: str, model: Output[Model], accuracy: Output[Metri
 
 
 @component()
-def select_best_model_op(models: list, accuracies: list, best_model: Output[Model]):
+def select_best_model_op(models: Input[List[Model]], accuracies: Input[List[Metrics]], best_model: Output[Model]):
     # Find the index of the model with the highest accuracy
     best_index = accuracies.index(max(accuracies))
 
@@ -94,33 +84,17 @@ def train_multiple_models_pipeline():
     ]  # replace with your model names
     # model_names = [{"model_name": "LinearRegression"}, {"model_name": "RandomForestRegressor"}, {"model_name": "XGBRegressor"}]
 
-    # models = []
-    # accuracies = []
-    # with dsl.ParallelFor(model_names) as model_name:
-    #     train_op = train_model_op(model_name=model_name)
-        # models.append(train_op.outputs['model'])
-        # accuracies.append(train_op.outputs['accuracy'])
-    
+    train_op = train_model_op()
 
-    # best_model_op = select_best_model_op(
-        # models=dsl.Collected(train_op.outputs["model"]),
-        # accuracies=dsl.Collected(train_op.outputs["accuracy"]),
-    # )
-
-    models = []
-    model_scores = []
-
-    for model_name in model_names:
-        train_op = train_model_op(model_name=model_name)
-        models.append(train_op.outputs['model'])
-        model_scores.append(train_op.outputs['accuracy'])
-
-    select_best_model_op(models=models, accuracies=model_scores)
+    best_model_op = select_best_model_op(
+        models=train_op.outputs["model"],
+        accuracies=train_op.outputs["accuracy"],
+    )
 
     # deploy_model_op(best_model_op.outputs['best_model'])
 
 
 if __name__ == "__main__":
     compiler.Compiler().compile(
-        train_multiple_models_pipeline, "train_multiple_models_pipeline.yaml"
+        train_multiple_models_pipeline, "train_multiple_models_pipeline2.yaml"
     )
