@@ -1,6 +1,6 @@
 # name of the project
 variable "project_name" {
-    default = "mlops-project-397918"
+    default = "gcp-tutorial-400612"
 }
 
 # name of the credentials file
@@ -30,5 +30,9 @@ variable "data_file" {
 
 # path to the script file
 variable "script_file" {
-    default = "../scripts/outlier.py"
+    default = "../scripts/pyspark-preprocess.py"
+}
+
+variable "suffix" {
+    default = "011023"
 }

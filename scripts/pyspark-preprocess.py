@@ -1,59 +1,65 @@
 from pyspark.sql import SparkSession
-from pyspark.ml.feature import StringIndexer, VectorAssembler
-from pyspark.ml import Pipeline
-from pyspark.ml.regression import LinearRegression
-from pyspark.sql.functions import col
+from pyspark.ml.feature import StringIndexer
+from pyspark.sql.functions import desc, mean, to_date
+from pyspark.sql.types import StructType, StructField
 
 # Initialize a Spark session
-spark = SparkSession.builder.appName("YourAppName").getOrCreate()
+spark = SparkSession.builder.appName("MLOps").getOrCreate()
 
 # Load the CSV file into a Spark DataFrame
-data = spark.read.csv(destination_file_path, header=True, inferSchema=True)
+data = spark.read.csv("gs://train-data-011023/train.csv", header=True, inferSchema=True)
 
-# Define the target feature
 TARGET_FEATURE = "Price"
 
-# Select the target feature column
-Y = data[TARGET_FEATURE]
+# Select numeric and categorical features
+numeric_features = [t[0] for t in data.dtypes if t[1] == 'int' or t[1] == 'double']
+categorical_features = [t[0] for t in data.dtypes if t[1] == 'string']
 
-# Separate numeric and categorical features
-numeric_features = [col(column) for column, data_type in data.dtypes if data_type in ["int", "double"]]
-categorical_features = [col(column) for column, data_type in data.dtypes if data_type == "string"]
+# Impute missing values
+data = data.fillna({'CouncilArea': 'Moreland'})
 
-# Impute missing values for categorical features
-categorical_features = ["CouncilArea", "Type", "Method", "Regionname"]
+mode_value = data.groupBy('YearBuilt').count().orderBy(desc('count')).collect()[1][0]
+data = data.fillna({'YearBuilt': mode_value})
+
+mode_value = data.groupBy('Date').count().orderBy(desc('count')).collect()[0][0]
+data = data.fillna({'Date': mode_value})
+data = data.withColumn('Date', to_date(data.Date, 'd/M/yyyy'))
+
+mean_value = data.select(mean(data['BuildingArea'])).collect()[0][0]
+data = data.fillna({'BuildingArea': mean_value})
+
+data = data.withColumn("Car", data["Car"].cast("float"))
+data = data.sort("Car")
+median_value = data.approxQuantile("Car", [0.5], 0)[0]
+data = data.fillna({'Car': median_value})
+
+
+# Define feature_columns that we convert to number
+categorical_features = ["Type", "Method", "CouncilArea", "Regionname"]
+
 for column in categorical_features:
-    data = data.withColumn(column, when(data[column].isNull(), "Moreland").otherwise(data[column]))
+    indexer = StringIndexer(inputCol=column, outputCol=column+"_index").fit(data)
+    data = indexer.transform(data)
 
-# Impute missing values for numeric features
-numeric_features_with_missing = [column for column in numeric_features if data.where(col(column).isNull()).count() > 0]
-for column in numeric_features_with_missing:
-    mean_value = data.select(mean(column)).collect()[0][0]
-    data = data.withColumn(column, when(data[column].isNull(), mean_value).otherwise(data[column]))
+data = data.dropna(subset=['Address'])
+# Select the required columns and save to CSV
+df = data.select(["Date", "Address", *categorical_features, *numeric_features])
 
-# Encode categorical features using StringIndexer
-indexers = [StringIndexer(inputCol=column, outputCol=column + "_index").fit(data) for column in categorical_features]
-pipeline = Pipeline(stages=indexers)
-data = pipeline.fit(data).transform(data)
+schema = StructType()
+for field in df.schema.fields:
+    schema.add(StructField(field.name, field.dataType, False))
+final_df = spark.createDataFrame(df.rdd, schema)
 
-# Create a list of training features
-training_features = numeric_features + [column + "_index" for column in categorical_features if column != TARGET_FEATURE]
+# Save the preprocessed data to BigQuery
+project_id = "gcp-tutorial-400612"
+dataset_name = "dataset_011023"
+table_name = "preprocessed_data"
 
-# Assemble the feature columns into a single vector column
-assembler = VectorAssembler(inputCols=training_features, outputCol="features")
-data = assembler.transform(data)
-
-# Normalize the features using MinMaxScaler
-from pyspark.ml.feature import MinMaxScaler
-scaler = MinMaxScaler(inputCol="features", outputCol="scaled_features")
-scaler_model = scaler.fit(data)
-data = scaler_model.transform(data)
-
-# Select the final preprocessed data with scaled features and target column
-data = data.select("scaled_features", TARGET_FEATURE)
-
-# Save the preprocessed data as a CSV file
-data.toPandas().to_csv("preprocessed.csv", index=False)
+final_df.write.format("bigquery").option("temporaryGcsBucket", "train-data-011023").option("project", project_id).option(
+    "dataset", dataset_name
+).option("table", table_name).option(
+    "createDisposition", "CREATE_IF_NEEDED"
+).mode("overwrite").save()
 
 # Stop the Spark session
 spark.stop()
