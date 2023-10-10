@@ -1,6 +1,6 @@
 # name of the project
 variable "project_id" {
-    default = "gcp-tutorial-400612"
+    default = "mlops-project-401617"
 }
 
 # name of the credentials file
