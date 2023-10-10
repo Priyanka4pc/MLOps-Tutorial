@@ -5,10 +5,10 @@ resource "google_project_service" "dataproc" {
 }
 
 # Enable Cloud Dataproc Control API PRIVATE
-resource "google_project_service" "dataproc_control" {
-  project = var.project_id
-  service = "dataproc-control.googleapis.com"
-}
+# resource "google_project_service" "dataproc_control" {
+#   project = var.project_id
+#   service = "dataproc-control.googleapis.com"
+# }
 
 # Enable Cloud Resource Manager API
 resource "google_project_service" "resource_manager" {
