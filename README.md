@@ -68,4 +68,4 @@
 
       >NOTE:The file paths needs to be changed based on operating system, current paths are based on MAC environment, for Windows change accordingly.
 
-## Milestone 3
+## Milestone 3 Pipeline creation and CI/CD
