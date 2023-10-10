@@ -1,18 +1,3 @@
-# define terraform provider
-terraform {
-  backend "gcs" {
-    bucket = "tf-state-prod-mlops"
-    prefix = "terraform/state"
-  }
-}
-
-provider "google" {
-  project = var.project_id
-  # credentials = file(var.creds_file)  # required when terraform authenticates on it's own
-  region = var.region
-  zone   = var.zone
-}
-
 # create a bucket for storing the dataset
 resource "google_storage_bucket" "dataset_bucket" {
   name          = "train-data-${var.suffix}"

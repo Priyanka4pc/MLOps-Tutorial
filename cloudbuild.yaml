@@ -1,5 +1,6 @@
 steps:
   - name: "hashicorp/terraform:1.6"
+    id: infra
     entrypoint: "/bin/sh"
     args:
       - "-c"
@@ -16,6 +17,7 @@ steps:
 
   # Step to run your Python script
   - name: "python:3.10"
+    id: feature-store
     entrypoint: "bash"
     args:
       - "-c"
@@ -23,8 +25,10 @@ steps:
         pip install -r fs-req.txt
         python feature-store.py
     dir: "scripts"
+    waitFor: ["infra"]
 
   - name: "python:3.10"
+    id: vertex
     entrypoint: "bash"
     args:
       - "-c"
@@ -34,6 +38,7 @@ steps:
     env:
       - "SERVICE_ACCOUNT=mlops-tutorial@mlops-project-401617.iam.gserviceaccount.com"
     dir: "scripts"
+    waitFor: ["infra", "feature-store"]
 
 options:
   logging: CLOUD_LOGGING_ONLY
