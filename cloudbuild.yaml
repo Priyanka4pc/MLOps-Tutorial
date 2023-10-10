@@ -1,0 +1,36 @@
+steps:
+  - name: "hashicorp/terraform:1.6"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        terraform init
+        terraform apply -auto-approve
+        echo PROJECT_ID=$(terraform output -raw project_id) > /workspace/.env
+        echo REGION=$(terraform output -raw region) >> /workspace/.env
+        echo BQ_DATASET=$(terraform output -raw gcs_dataset_bucket) >> /workspace/.env
+        echo BQ_TABLE=$(terraform output -raw dataset_name) >> /workspace/.env
+        echo FS_NAME=$(terraform output -raw fs_name) >> /workspace/.env
+        echo FS_ENTITY_NAME=$(terraform output -raw fs_entity_name) >> /workspace/.env
+    dir: "terraform"
+
+  # Step to run your Python script
+  - name: "python:3.10"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        pip install -r fs-req.txt
+        python feature-store.py
+    dir: "scripts"
+
+  - name: "python:3.10"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        pip install -r pipeline-req.txt
+        python pipeline.py
+    env:
+      - "SERVICE_ACCOUNT=mlops-tutorial@mlops-project-401617.iam.gserviceaccount.com"
+    dir: "scripts"

@@ -1,65 +1,91 @@
+import argparse
+
 from pyspark.sql import SparkSession
 from pyspark.ml.feature import StringIndexer
-from pyspark.sql.functions import desc, mean, to_date
-from pyspark.sql.types import StructType, StructField
-
-# Initialize a Spark session
-spark = SparkSession.builder.appName("MLOps").getOrCreate()
-
-# Load the CSV file into a Spark DataFrame
-data = spark.read.csv("gs://train-data-011023/train.csv", header=True, inferSchema=True)
-
-TARGET_FEATURE = "Price"
-
-# Select numeric and categorical features
-numeric_features = [t[0] for t in data.dtypes if t[1] == 'int' or t[1] == 'double']
-categorical_features = [t[0] for t in data.dtypes if t[1] == 'string']
-
-# Impute missing values
-data = data.fillna({'CouncilArea': 'Moreland'})
-
-mode_value = data.groupBy('YearBuilt').count().orderBy(desc('count')).collect()[1][0]
-data = data.fillna({'YearBuilt': mode_value})
-
-mode_value = data.groupBy('Date').count().orderBy(desc('count')).collect()[0][0]
-data = data.fillna({'Date': mode_value})
-data = data.withColumn('Date', to_date(data.Date, 'd/M/yyyy'))
-
-mean_value = data.select(mean(data['BuildingArea'])).collect()[0][0]
-data = data.fillna({'BuildingArea': mean_value})
-
-data = data.withColumn("Car", data["Car"].cast("float"))
-data = data.sort("Car")
-median_value = data.approxQuantile("Car", [0.5], 0)[0]
-data = data.fillna({'Car': median_value})
+from pyspark.sql.functions import desc, mean, row_number, monotonically_increasing_id, col, to_utc_timestamp, to_date
+from pyspark.sql.window import Window
 
 
-# Define feature_columns that we convert to number
-categorical_features = ["Type", "Method", "CouncilArea", "Regionname"]
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="A simple argument parser example")
 
-for column in categorical_features:
-    indexer = StringIndexer(inputCol=column, outputCol=column+"_index").fit(data)
-    data = indexer.transform(data)
+    # Define positional arguments
+    parser.add_argument("project", help="project id")
+    parser.add_argument("dataset", help="dataset id")
+    parser.add_argument("table", help="table name")
+    parser.add_argument("bucket", help="bucket with training data")
+    
+    args = parser.parse_args()
+    
+    return args
 
-data = data.dropna(subset=['Address'])
-# Select the required columns and save to CSV
-df = data.select(["Date", "Address", *categorical_features, *numeric_features])
+def preprocessing(spark, gcs_bucket):
 
-schema = StructType()
-for field in df.schema.fields:
-    schema.add(StructField(field.name, field.dataType, False))
-final_df = spark.createDataFrame(df.rdd, schema)
+    # Load the CSV file into a Spark DataFrame
+    data = spark.read.csv(f"gs://{gcs_bucket}/train.csv", header=True, inferSchema=True)
 
-# Save the preprocessed data to BigQuery
-project_id = "gcp-tutorial-400612"
-dataset_name = "dataset_011023"
-table_name = "preprocessed_data"
+    # Select categorical features
+    categorical_features = [t[0] for t in data.dtypes if t[1] == 'string']
 
-final_df.write.format("bigquery").option("temporaryGcsBucket", "train-data-011023").option("project", project_id).option(
-    "dataset", dataset_name
-).option("table", table_name).option(
-    "createDisposition", "CREATE_IF_NEEDED"
-).mode("overwrite").save()
+    # Impute missing values
+    data = data.fillna({'CouncilArea': 'Moreland'})
 
-# Stop the Spark session
-spark.stop()
+    mode_value = data.groupBy('YearBuilt').count().orderBy(desc('count')).collect()[1][0]
+    data = data.fillna({'YearBuilt': mode_value})
+
+    mean_value = data.select(mean(data['BuildingArea'])).collect()[0][0]
+    data = data.fillna({'BuildingArea': mean_value})
+
+    data = data.withColumn("Car", data["Car"].cast("float"))
+    data = data.sort("Car")
+    median_value = data.approxQuantile("Car", [0.5], 0)[0]
+    data = data.fillna({'Car': median_value})
+
+    data = data.withColumn("time", to_utc_timestamp(to_date(col("Date"), "d/M/yyyy"), "UTC"))
+
+    # Define feature_columns that we convert to number
+    categorical_features = ["Type", "Method", "CouncilArea", "Regionname"]
+
+    for column in categorical_features:
+        indexer = StringIndexer(inputCol=column, outputCol=column+"_index").fit(data)
+        data = indexer.transform(data)
+
+    data = data.dropna(subset=['Address'])
+    data = data.drop(*categorical_features, "SellerG", "Suburb", "Date", "Lattitude", "Longtitude", "Postcode", "Address")
+
+    for col in data.columns:
+        data = data.withColumnRenamed(col, col.lower())
+
+    # Add the index array as a new column
+    data = data.withColumn("index_column", row_number().over(Window.orderBy(monotonically_increasing_id())) - 1)
+    data = data.withColumn("index_column", data["index_column"].cast("string"))
+
+    return data
+
+def ingest_data_bq(data, args):
+
+    project_id = args.project
+    dataset_name = args.dataset
+    table_name = args.table
+
+    data.write.format("bigquery").option("temporaryGcsBucket", gcs_bucket).option("project", project_id).option(
+        "dataset", dataset_name
+    ).option("table", table_name).option(
+        "createDisposition", "CREATE_IF_NEEDED"
+    ).mode("overwrite").save()
+
+
+if __name__ == "__main__":
+     # Initialize a Spark session
+    spark = SparkSession.builder.appName("MLOps").getOrCreate()
+
+    args = parse_arguments()
+
+    # Save the preprocessed data to BigQuery
+    gcs_bucket = args.bucket
+    data = preprocessing(spark, gcs_bucket)
+
+    ingest_data_bq(data, args)
+    
+    # Stop the Spark session
+    spark.stop()

@@ -1,5 +1,5 @@
 # name of the project
-variable "project_name" {
+variable "project_id" {
     default = "gcp-tutorial-400612"
 }
 
@@ -31,6 +31,10 @@ variable "data_file" {
 # path to the script file
 variable "script_file" {
     default = "../scripts/pyspark-preprocess.py"
+}
+
+variable "bq_table" {
+    default = "preprocessed_data"
 }
 
 variable "suffix" {

@@ -1,0 +1,7 @@
+Cloud Dataproc API
+Cloud Dataproc Control API PRIVATE	
+Cloud Resource Manager API
+Compute Engine API
+Vertex AI API
+Secret Manager API
+Cloud Build API

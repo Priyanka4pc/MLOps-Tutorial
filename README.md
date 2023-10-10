@@ -20,7 +20,7 @@
         ![JSON Key](images/json-key.png)
     - Enable all the required APIs - 
       ![Enabled APIs](images/enabled-apis.png)
-        - Compute Engine API	2	0	393	511	
+        - Compute Engine API
         - Vertex AI API
         - Artifact Registry API
         - BigQuery API
@@ -51,7 +51,7 @@
         git clone <repo-name>
         ```
 
-1. **Infrastructure as Code with Terraform:**
+2. **Infrastructure as Code with Terraform:**
    - Prerequisites:
      - Install Terraform: https://developer.hashicorp.com/terraform/downloads
    - Steps:

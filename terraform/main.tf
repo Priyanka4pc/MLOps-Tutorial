@@ -1,15 +1,23 @@
 # define terraform provider
+terraform {
+  backend "gcs" {
+    bucket = "tf-state-prod-mlops"
+    prefix = "terraform/state"
+  }
+}
+
 provider "google" {
-  project     = var.project_name
-  credentials = file(var.creds_file)
-  region      = var.region
-  zone        = var.zone
+  project = var.project_id
+  # credentials = file(var.creds_file)  # required when terraform authenticates on it's own
+  region = var.region
+  zone   = var.zone
 }
 
 # create a bucket for storing the dataset
 resource "google_storage_bucket" "dataset_bucket" {
   name          = "train-data-${var.suffix}"
-  location      = var.location
+  location      = var.region
+  storage_class = "REGIONAL"
   force_destroy = true
 }
 
@@ -24,28 +32,38 @@ resource "google_storage_bucket_object" "csv_upload" {
 # create a dataproc cluster
 resource "google_dataproc_cluster" "preprocessing_cluster" {
   name    = "preprocessing-cluster-${var.suffix}"
-  project = var.project_name
+  project = var.project_id
   region  = var.region
   cluster_config {
     master_config {
       num_instances = 1
-      machine_type  = "n1-standard-4"
+      machine_type  = "n1-standard-2"
     }
     worker_config {
       num_instances = 2
-      machine_type  = "n1-standard-4"
+      machine_type  = "n1-standard-2"
     }
 
+  }
+}
+
+# create a big query dataset 
+resource "google_bigquery_dataset" "example_dataset" {
+  dataset_id = "dataset_${var.suffix}"
+  project    = var.project_id
+  labels = {
+    environment = "development"
   }
 }
 
 # create a bucket to store preprocessing script for dataproc job
 resource "google_storage_bucket" "script_bucket" {
   name     = "pyspark-script-${var.suffix}"
-  location = var.location
+  location = var.region
+  storage_class = "REGIONAL"
+  force_destroy = true
 }
 
-# included in milestone 2
 # uplaod preprocessing script to bucket
 resource "google_storage_bucket_object" "python_script_upload" {
   name         = "pyspark-preprocess.py"
@@ -64,28 +82,60 @@ resource "google_dataproc_job" "pyspark" {
 
   pyspark_config {
     main_python_file_uri = "gs://${google_storage_bucket.script_bucket.name}/${google_storage_bucket_object.python_script_upload.name}"
-    jar_file_uris = ["gs://spark-lib/bigquery/spark-bigquery-latest_2.12.jar"]
+    jar_file_uris        = ["gs://spark-lib/bigquery/spark-bigquery-latest_2.12.jar"]
+    args = [
+      "--project",
+      var.project_id,
+      "--dataset",
+      google_bigquery_dataset.example_dataset.dataset_id,
+      "--table",
+      var.bq_table,
+      "--bucket",
+      google_storage_bucket.dataset_bucket.name
+    ]
     properties = {
       "spark.logConf" = "true"
     }
   }
-}
 
-# create a big query dataset 
-resource "google_bigquery_dataset" "example_dataset" {
-  dataset_id = "dataset_${var.suffix}"
-  project    = var.project_name
-  labels = {
-    environment = "development"
-  }
+  depends_on = [
+    google_storage_bucket.script_bucket,
+    google_storage_bucket_object.python_script_upload,
+    google_bigquery_dataset.example_dataset,
+    google_dataproc_cluster.preprocessing_cluster
+  ]
 }
 
 # create a feature store
-# resource "google_vertex_ai_featurestore" "featurestore" {
-#   name   = "feature_store_${var.suffix}"
-#   region = var.region
-#   # online_serving_config {
-#   #   fixed_node_count = 2
-#   # }
-#   force_destroy = true
-# }
+resource "google_vertex_ai_featurestore" "featurestore" {
+  name   = "feature_store_${var.suffix}"
+  region = var.region
+  online_serving_config {
+    fixed_node_count = 1
+  }
+  force_destroy = true
+}
+
+resource "google_vertex_ai_featurestore_entitytype" "entity" {
+  name = "processed_features"
+
+  description  = "house features"
+  featurestore = google_vertex_ai_featurestore.featurestore.id
+  monitoring_config {
+    snapshot_analysis {
+      disabled                 = false
+      monitoring_interval_days = 1
+      staleness_days           = 21
+    }
+    numerical_threshold_config {
+      value = 0.8
+    }
+    categorical_threshold_config {
+      value = 10.0
+    }
+    import_features_analysis {
+      state                      = "ENABLED"
+      anomaly_detection_baseline = "PREVIOUS_IMPORT_FEATURES_STATS"
+    }
+  }
+}

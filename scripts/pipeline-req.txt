@@ -1,0 +1,3 @@
+python-dotenv
+kfp
+google-cloud-aiplatform
