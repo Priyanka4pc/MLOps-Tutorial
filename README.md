@@ -20,29 +20,12 @@
         ![JSON Key](images/json-key.png)
     - Enable all the required APIs - 
       ![Enabled APIs](images/enabled-apis.png)
-        - Compute Engine API
-        - Vertex AI API
-        - Artifact Registry API
-        - BigQuery API
-        - BigQuery Migration API
-        - BigQuery Storage API
-        - Cloud Build API
         - Cloud Dataproc API
-        - Cloud Dataproc Control API
-        - Cloud Datastore API
-        - Cloud Logging API
-        - Cloud Monitoring API
-        - Cloud OS Login API
-        - Cloud Pub/Sub API
-        - Cloud SQL
-        - Cloud Storage
-        - Cloud Storage API
-        - Cloud Trace API
-        - Container Registry API
-        - Google Cloud API
-        - Google Cloud Storage JSON API
-        - Service Management API
-        - Service Usage AP
+        - Cloud Resource Manager API
+        - Vertex AI API
+        - Secret Manager API
+        - Cloud Build API
+        - IAM Service Account Credentials API
     - Set up a version control repository for code and documentation.
       - Follow the steps to create new repository: https://docs.github.com/en/get-started/quickstart/create-a-repo
       - Clone the repository to your local
