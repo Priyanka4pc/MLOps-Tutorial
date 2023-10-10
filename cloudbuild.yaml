@@ -3,7 +3,10 @@ steps:
     id: infra
     entrypoint: "/bin/sh"
     args:
-      - "-e -o pipefail -c"
+      - "-e"
+      - "-o"
+      - "pipefail"
+      - "-c"
       - |
         terraform init
         terraform apply -auto-approve
