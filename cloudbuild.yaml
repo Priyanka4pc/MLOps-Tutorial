@@ -1,6 +1,6 @@
 steps:
   - name: "hashicorp/terraform:1.6"
-    entrypoint: "bash"
+    entrypoint: "/bin/sh"
     args:
       - "-c"
       - |
