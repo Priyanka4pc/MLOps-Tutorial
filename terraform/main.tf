@@ -34,8 +34,9 @@ resource "google_dataproc_cluster" "preprocessing_cluster" {
 
 # create a big query dataset 
 resource "google_bigquery_dataset" "example_dataset" {
-  dataset_id = "dataset_${var.suffix}"
-  project    = var.project_id
+  dataset_id                 = "dataset_${var.suffix}"
+  project                    = var.project_id
+  delete_contents_on_destroy = true
   labels = {
     environment = "development"
   }
@@ -43,8 +44,8 @@ resource "google_bigquery_dataset" "example_dataset" {
 
 # create a bucket to store preprocessing script for dataproc job
 resource "google_storage_bucket" "script_bucket" {
-  name     = "pyspark-script-${var.suffix}"
-  location = var.region
+  name          = "pyspark-script-${var.suffix}"
+  location      = var.region
   storage_class = "REGIONAL"
   force_destroy = true
 }
@@ -101,6 +102,7 @@ resource "google_vertex_ai_featurestore_entitytype" "entity" {
 
   description  = "house features"
   featurestore = google_vertex_ai_featurestore.featurestore.id
+
   monitoring_config {
     snapshot_analysis {
       disabled                 = false
