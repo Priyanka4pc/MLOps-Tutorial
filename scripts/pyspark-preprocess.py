@@ -22,7 +22,7 @@ def parse_arguments():
 def preprocessing(spark, gcs_bucket):
 
     # Load the CSV file into a Spark DataFrame
-    data = spark.read.csv(f"gs://{gcs_bucket}/train.csv", header=True, inferSchema=True)
+    data = spark.read.csv(f"gs://{gcs_bucket}/train_data.csv", header=True, inferSchema=True)
 
     # Select categorical features
     categorical_features = [t[0] for t in data.dtypes if t[1] == 'string']
@@ -53,8 +53,8 @@ def preprocessing(spark, gcs_bucket):
     data = data.dropna(subset=['Address'])
     data = data.drop(*categorical_features, "SellerG", "Suburb", "Date", "Lattitude", "Longtitude", "Postcode", "Address")
 
-    for col in data.columns:
-        data = data.withColumnRenamed(col, col.lower())
+    for column in data.columns:
+        data = data.withColumnRenamed(column, column.lower())
 
     # Add the index array as a new column
     data = data.withColumn("index_column", row_number().over(Window.orderBy(monotonically_increasing_id())) - 1)

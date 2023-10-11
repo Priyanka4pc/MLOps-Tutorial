@@ -8,7 +8,7 @@ resource "google_storage_bucket" "dataset_bucket" {
 
 # upload data to bucket
 resource "google_storage_bucket_object" "csv_upload" {
-  name         = "train.csv"
+  name         = "train_data.csv"
   bucket       = google_storage_bucket.dataset_bucket.name
   source       = var.data_file
   content_type = "text/csv"
@@ -69,20 +69,15 @@ resource "google_dataproc_job" "pyspark" {
     main_python_file_uri = "gs://${google_storage_bucket.script_bucket.name}/${google_storage_bucket_object.python_script_upload.name}"
     jar_file_uris        = ["gs://spark-lib/bigquery/spark-bigquery-latest_2.12.jar"]
     args = [
-      "--project",
       var.project_id,
-      "--dataset",
       google_bigquery_dataset.example_dataset.dataset_id,
-      "--table",
       var.bq_table,
-      "--bucket",
       google_storage_bucket.dataset_bucket.name
     ]
     properties = {
       "spark.logConf" = "true"
     }
   }
-
   depends_on = [
     google_storage_bucket.script_bucket,
     google_storage_bucket_object.python_script_upload,

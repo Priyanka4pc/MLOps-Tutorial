@@ -70,10 +70,7 @@ def populate_feature_store(name):
     )
     print(f"{fs.gca_resource=}")
 
-    preprocessed_entity_type = fs.create_entity_type(
-        entity_type_id=ENTITY_TYPE_ID,
-        description="Housing data",
-    )
+    preprocessed_entity_type = fs.get_entity_type(entity_type_id=ENTITY_TYPE_ID)
     table_obj = BQ_CLIENT.get_table("{}.{}.{}".format(PROJECT_ID, DATASET, SRC_TABLE))
     for s in table_obj.schema:
         if s.name.lower() not in ["time", "index_column"]:

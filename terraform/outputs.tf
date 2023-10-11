@@ -14,6 +14,10 @@ output "dataset_name" {
   value = google_bigquery_dataset.example_dataset.dataset_id
 }
 
+output "bq_table" {
+  value = var.bq_table
+}
+
 output "fs_name" {
   value = google_vertex_ai_featurestore.featurestore.name
 }

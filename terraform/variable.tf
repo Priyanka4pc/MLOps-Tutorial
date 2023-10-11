@@ -25,7 +25,7 @@ variable "location" {
 
 # path to the data file
 variable "data_file" {
-    default = "../data/train.csv"
+    default = "../data/train_data.csv"
 }
 
 # path to the script file
