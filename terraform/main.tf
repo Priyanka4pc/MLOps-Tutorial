@@ -98,7 +98,7 @@ resource "google_vertex_ai_featurestore" "featurestore" {
 }
 
 resource "google_vertex_ai_featurestore_entitytype" "entity" {
-  name = "features"
+  name = "data_features"
 
   description  = "house features"
   featurestore = google_vertex_ai_featurestore.featurestore.id

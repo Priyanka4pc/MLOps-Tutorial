@@ -41,6 +41,13 @@ def preprocessing(spark, gcs_bucket):
     median_value = data.approxQuantile("Car", [0.5], 0)[0]
     data = data.fillna({'Car': median_value})
 
+    # Convert "Date" column to date type
+    data = data.withColumn("date_column", to_date(col("Date"), "yyyy-MM-dd"))
+
+    # Convert the date to UTC timestamp and store it in a new column "time"
+    data = data.withColumn("time", to_utc_timestamp(col("date_column"), "UTC"))
+
+
     # Define feature_columns that we convert to number
     categorical_features = ["Type", "Method", "CouncilArea", "Regionname"]
 
@@ -49,7 +56,7 @@ def preprocessing(spark, gcs_bucket):
         data = indexer.transform(data)
 
     data = data.dropna(subset=['Address'])
-    data = data.drop(*categorical_features, "SellerG", "Suburb", "Date", "Lattitude", "Longtitude", "Postcode", "Address")
+    data = data.drop(*categorical_features, "SellerG", "Suburb", "Date", "Lattitude", "Longtitude", "Postcode", "Address", "date_column")
 
     for column in data.columns:
         data = data.withColumnRenamed(column, column.lower())

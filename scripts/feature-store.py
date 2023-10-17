@@ -1,5 +1,4 @@
 import os
-import datetime
 from dotenv import load_dotenv
 from google.api_core.client_options import ClientOptions
 from google.cloud import bigquery
@@ -74,7 +73,7 @@ def populate_feature_store(name):
     preprocessed_entity_type = fs.get_entity_type(entity_type_id=ENTITY_TYPE_ID)
     table_obj = BQ_CLIENT.get_table("{}.{}.{}".format(PROJECT_ID, DATASET, SRC_TABLE))
     for s in table_obj.schema:
-        if s.name.lower() not in ["index_column"]:
+        if s.name.lower() not in ["time", "index_column"]:
             preprocessed_entity_type.create_feature(
                 feature_id=s.name.lower(),
                 value_type=map_dtype_to_featurestore(s.field_type),
@@ -96,7 +95,7 @@ def get_feature_source_fields(preprocessed_entity_type):
     columns = [
         s.name
         for s in src_table.schema
-        if s.name.lower() not in ["index_column"]
+        if s.name.lower() not in ["time", "index_column"]
     ]
 
     print("Obtained mapping from feature store to bigquery")
@@ -110,7 +109,7 @@ def populate_features_extract_features(fs, preprocessed_entity_type):
         )
         preprocessed_entity_type.ingest_from_bq(
             feature_ids=lofn,
-            feature_time=datetime.datetime.now(),
+            feature_time="time",
             bq_source_uri="bq://{}.{}.{}".format(PROJECT_ID, DATASET, SRC_TABLE),
             feature_source_fields=feature_source_fields,
             entity_id_field="index_column",
