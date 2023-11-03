@@ -37,6 +37,14 @@
 
 - Prerequisites:
   - Install Terraform: https://developer.hashicorp.com/terraform/downloads
+  - Create a bucket with name `tf-state-prod-mlops` in GCP to store the terraform state.
+    ![Tf State Bucket](ss-record/tf-state-bucket.gif)
+    - Change bucket name in `provider.tf` to the bucket we just created.
+
+  - Variables to change in `variable.tf`:
+    - `project_id`: change it to you google project ID
+    - `creds_file`: change it to the path to your gcp credentials.json file
+
 - Steps:
   - Create folder with name terraform.
   - Add service-account creds file and rename to `gcp-creds.json`.
@@ -51,6 +59,7 @@
 ### Steps to run separately from cloudbuild
 
 ```sh
+export GOOGLE_APPLICATION_CREDENTIALS="path/to/gcp-creds.json"
 terraform init
 terraform apply -auto-approve 
 ```
@@ -70,6 +79,7 @@ terraform apply -auto-approve
 - Run a dataproc job for preprocessing and saving the processed data into bigquery.
 
   ```sh
+  export GOOGLE_APPLICATION_CREDENTIALS="path/to/gcp-creds.json"
   terraform apply
   ```
 
@@ -90,6 +100,7 @@ terraform apply -auto-approve
 - Run the following command in terminal:
 
   ```sh
+  export GOOGLE_APPLICATION_CREDENTIALS="path/to/gcp-creds.json"
   python feature-store.py 
   ```
 
@@ -119,6 +130,7 @@ terraform apply -auto-approve
   - fetch features from feature store
   - train model
   - deploy model
+- In cloudbuild.yaml change the service account name
 - Once the cloudbuild pipeline runs, the vertex pipeline will be triggered
  ![Pipeline](images/pipeline.png)
 - Wait for the pipeline to complete. Once the pipeline completes, you can see the model deployed on the endpoint which can be used for inferencing.
