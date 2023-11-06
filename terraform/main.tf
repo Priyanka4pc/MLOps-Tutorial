@@ -14,24 +14,6 @@ resource "google_storage_bucket_object" "csv_upload" {
   content_type = "text/csv"
 }
 
-# create a dataproc cluster
-resource "google_dataproc_cluster" "preprocessing_cluster" {
-  name    = "preprocessing-cluster-${var.suffix}"
-  project = var.project_id
-  region  = var.region
-  cluster_config {
-    master_config {
-      num_instances = 1
-      machine_type  = "n1-standard-2"
-    }
-    worker_config {
-      num_instances = 2
-      machine_type  = "n1-standard-2"
-    }
-
-  }
-}
-
 # create a big query dataset 
 resource "google_bigquery_dataset" "example_dataset" {
   dataset_id                 = "dataset_${var.suffix}"
@@ -40,51 +22,6 @@ resource "google_bigquery_dataset" "example_dataset" {
   labels = {
     environment = "development"
   }
-}
-
-# create a bucket to store preprocessing script for dataproc job
-resource "google_storage_bucket" "script_bucket" {
-  name          = "pyspark-script-${var.suffix}"
-  location      = var.region
-  storage_class = "REGIONAL"
-  force_destroy = true
-}
-
-# uplaod preprocessing script to bucket
-resource "google_storage_bucket_object" "python_script_upload" {
-  name         = "pyspark-preprocess.py"
-  bucket       = google_storage_bucket.script_bucket.name
-  source       = var.script_file
-  content_type = "text/x-python-script"
-}
-
-# run the preprocessing script in a dataproc job
-resource "google_dataproc_job" "pyspark" {
-  region       = google_dataproc_cluster.preprocessing_cluster.region
-  force_delete = true
-  placement {
-    cluster_name = google_dataproc_cluster.preprocessing_cluster.name
-  }
-
-  pyspark_config {
-    main_python_file_uri = "gs://${google_storage_bucket.script_bucket.name}/${google_storage_bucket_object.python_script_upload.name}"
-    jar_file_uris        = ["gs://spark-lib/bigquery/spark-bigquery-latest_2.12.jar"]
-    args = [
-      var.project_id,
-      google_bigquery_dataset.example_dataset.dataset_id,
-      var.bq_table,
-      google_storage_bucket.dataset_bucket.name
-    ]
-    properties = {
-      "spark.logConf" = "true"
-    }
-  }
-  depends_on = [
-    google_storage_bucket.script_bucket,
-    google_storage_bucket_object.python_script_upload,
-    google_bigquery_dataset.example_dataset,
-    google_dataproc_cluster.preprocessing_cluster
-  ]
 }
 
 # create a feature store
