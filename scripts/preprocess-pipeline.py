@@ -18,8 +18,11 @@ ENTITY_TYPE_ID = os.environ.get("FS_ENTITY_NAME")
 @component(
     base_image="python:3.10",
     packages_to_install=[
-        "google-cloud-bigquery[pandas]==3.10.0",
-        "scikit-learn==1.0.2",
+        "google-cloud-bigquery[pandas]",
+        "pandas",
+        "scikit-learn",
+        "fsspec",
+        "gcsfs"
     ],
 )
 def preprocess(project_id: str, gcs_bucket: str, dataset_name: str, table_name: str):
@@ -29,7 +32,6 @@ def preprocess(project_id: str, gcs_bucket: str, dataset_name: str, table_name: 
 
     # Load the CSV data into a pandas DataFrame
     data = pd.read_csv(f"gs://{gcs_bucket}/train_data.csv")
-    data = pd.read_csv("../data/train_data.csv")
 
     # Preprocess the data
     data["CouncilArea"].fillna(data["CouncilArea"].mode()[0], inplace=True)
@@ -259,3 +261,4 @@ if __name__ == "__main__":
     )
 
     response = pipeline_job.submit(service_account=os.environ.get("SERVICE_ACCOUNT"))
+    pipeline_job.wait()
