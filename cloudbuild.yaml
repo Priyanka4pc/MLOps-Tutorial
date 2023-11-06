@@ -12,24 +12,26 @@ steps:
         terraform apply -auto-approve
         echo PROJECT_ID=$(terraform output -raw project_id) > /workspace/.env
         echo REGION=$(terraform output -raw region) >> /workspace/.env
+        echo DATA_BUCKET = $(terraform output -raw gcs_dataset_bucket) >> /workspace/.env
         echo BQ_DATASET=$(terraform output -raw dataset_name) >> /workspace/.env
         echo BQ_TABLE=$(terraform output -raw bq_table) >> /workspace/.env
         echo FS_NAME=$(terraform output -raw fs_name) >> /workspace/.env
         echo FS_ENTITY_NAME=$(terraform output -raw fs_entity_name) >> /workspace/.env
     dir: "terraform"
 
-  # Step to run your Python script
   - name: "python:3.10"
-    id: feature-store
+    id: vertex
     entrypoint: "bash"
     args:
       - "-c"
       - |
         export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
-        pip install -r fs-req.txt
-        python feature-store.py
+        pip install -r pipeline-req.txt
+        python preprocess-pipeline.py
+    env:
+      - "SERVICE_ACCOUNT=mlops-tutorial@mlops-project-401617.iam.gserviceaccount.com"
     dir: "scripts"
-    waitFor: ["infra"]
+    waitFor: ["infra", "feature-store"]
 
   - name: "python:3.10"
     id: vertex
