@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from kfp import dsl, compiler
+from typing import List
 from kfp.dsl import component, Input, Output, Metrics, Model, Artifact, Dataset
 
 from google.cloud import aiplatform
@@ -92,7 +93,7 @@ def train_model_op(
 
     regmodel.fit(train_X, train_Y)
     os.makedirs(model.path, exist_ok=True)
-    joblib.dump(regmodel, os.path.join(model.path, f"{model_name}.joblib"))
+    joblib.dump(regmodel, os.path.join(model.path, "model.joblib"))
 
     score = regmodel.score(test_X, test_Y)
     accuracy.log_metric("Accuracy", score)
@@ -100,16 +101,18 @@ def train_model_op(
 
 @component(base_image="python:3.10")
 def best_model(
-    train1_accuracy: Input[Metrics],
-    train2_accuracy: Input[Metrics],
-    train1_model: Input[Model],
-    train2_model: Input[Model],
+    model_inputs: Input[List[Model]],
+    accuracy_inputs: Input[List[Metrics]],
     best_model: Output[Model],
-):
-    if train1_accuracy.metadata["Accuracy"] > train2_accuracy.metadata["Accuracy"]:
-        best_model.uri = train1_model.uri
+):  
+    if (
+        accuracy_inputs[0].metadata["Accuracy"]
+        > accuracy_inputs[1].metadata["Accuracy"]
+    ):
+        best_model.uri = model_inputs[0].uri
     else:
-        best_model.uri = train2_model.uri
+        best_model.uri = model_inputs[1].uri
+
 
 
 @component(base_image="python:3.10", packages_to_install=["google-cloud-aiplatform"])
@@ -166,24 +169,17 @@ def train_and_deploy_pipeline(
         time_column=time_column,
     )
     with dsl.ParallelFor(
-        models=["RandomForestRegressor", "DecisionTreeRegressor"], parallelism=1
-    ) as model_name:
-        train1 = train_model_op(
-            model_name=model_name,
-            target_column=target_column,
-            dataset=fetch_data_op.outputs["dataset"],
-        )
-        train2 = train_model_op(
-            model_name=model_name,
+        items=["RandomForestRegressor", "DecisionTreeRegressor"], parallelism=1
+    ) as item:
+        train = train_model_op(
+            model_name=item,
             target_column=target_column,
             dataset=fetch_data_op.outputs["dataset"],
         )
 
     best_model_op = best_model(
-        train1.outputs["accuracy"],
-        train1.outputs["model"],
-        train2.outputs["accuracy"],
-        train2.outputs["model"],
+        model_inputs=dsl.Collected(train.outputs["model"]),
+        accuracy_inputs=dsl.Collected(train.outputs["accuracy"]),
     )
     deploy_model_op(
         project_id=project_id,
@@ -205,3 +201,4 @@ if __name__ == "__main__":
     )
 
     response = pipeline_job.submit(service_account=os.environ.get("SERVICE_ACCOUNT"))
+    pipeline_job.wait()
