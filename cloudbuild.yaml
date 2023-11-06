@@ -20,7 +20,7 @@ steps:
     dir: "terraform"
 
   - name: "python:3.10"
-    id: vertex
+    id: preprocess
     entrypoint: "bash"
     args:
       - "-c"
@@ -31,7 +31,6 @@ steps:
     env:
       - "SERVICE_ACCOUNT=mlops-tutorial@mlops-project-401617.iam.gserviceaccount.com"
     dir: "scripts"
-    waitFor: ["infra", "feature-store"]
 
   - name: "python:3.10"
     id: vertex
@@ -45,7 +44,6 @@ steps:
     env:
       - "SERVICE_ACCOUNT=mlops-tutorial@mlops-project-401617.iam.gserviceaccount.com"
     dir: "scripts"
-    waitFor: ["infra", "feature-store"]
 
 options:
   logging: CLOUD_LOGGING_ONLY
