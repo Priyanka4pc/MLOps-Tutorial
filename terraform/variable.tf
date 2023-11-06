@@ -38,5 +38,5 @@ variable "bq_table" {
 }
 
 variable "suffix" {
-    default = "111023"
+    default = "61123"
 }
