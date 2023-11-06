@@ -44,6 +44,7 @@
   - Variables to change in `variable.tf`:
     - `project_id`: change it to you google project ID
     - `creds_file`: change it to the path to your gcp credentials.json file
+    - `suffix`: change it to some other value for uniqueness
 
 - Steps:
   - Create folder with name terraform.
