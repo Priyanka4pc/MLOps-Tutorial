@@ -1,6 +1,6 @@
 # name of the project
 variable "project_id" {
-    default = "mlops-project-401617"
+    default = "sustained-path-405106"
 }
 
 # name of the credentials file
@@ -29,14 +29,14 @@ variable "data_file" {
 }
 
 # path to the script file
-variable "script_file" {
-    default = "../scripts/pyspark-preprocess.py"
-}
+# variable "script_file" {
+#     default = "../scripts/pyspark-preprocess.py"
+# }
 
 variable "bq_table" {
     default = "preprocessed_data"
 }
 
 variable "suffix" {
-    default = "61123"
+    default = "141123"
 }

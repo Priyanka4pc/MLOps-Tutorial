@@ -65,6 +65,7 @@ resource "google_vertex_ai_endpoint" "endpoint" {
   description  = "Model endpoint"
   location     = var.region
   region       = var.region
+
 }
 resource "google_pubsub_topic" "monitoring_topic" {
   name = "monitoring-topic"

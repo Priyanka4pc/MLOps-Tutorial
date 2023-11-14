@@ -13,25 +13,18 @@ load_dotenv("/workspace/.env")
     base_image="python:3.10",
     packages_to_install=[
         "google-cloud-bigquery[pandas]==3.10.0",
-        # "google-cloud-aiplatform",
-        "google-cloud-bigquery-storage",
-        "pyarrow",
     ],
 )
 def fetch_features(
     project_id: str,
     dataset_id: str,
     table_name: str,
-    # region: str,
-    # feature_store_name: str,
-    # fs_entity_name: str,
-    entity_id_column: str,
-    time_column: str,
     target_column: str,
     dataset: Output[Dataset],
-    analysis_schema: Output[Artifact]
+    analysis_schema: Output[Artifact],
 ):
     from google.cloud import bigquery
+
     # from google.cloud.aiplatform import Featurestore
 
     client = bigquery.Client(project=project_id)
@@ -43,8 +36,7 @@ def fetch_features(
     job_config = bigquery.QueryJobConfig()
     query_job = client.query(query=query, job_config=job_config)
     df = query_job.result().to_dataframe()
-    features = df.drop([entity_id_column, time_column], axis=1)
-    features.to_csv(dataset.path, index=False)
+    df.to_csv(dataset.path, index=False)
 
     bq_table = client.get_table(table)
     yaml = """type: object
@@ -123,7 +115,7 @@ def best_model(
     model_inputs: Input[List[Model]],
     accuracy_inputs: Input[List[Metrics]],
     best_model: Output[Model],
-):  
+):
     if (
         accuracy_inputs[0].metadata["Accuracy"]
         > accuracy_inputs[1].metadata["Accuracy"]
@@ -131,7 +123,6 @@ def best_model(
         best_model.uri = model_inputs[0].uri
     else:
         best_model.uri = model_inputs[1].uri
-
 
 
 @component(base_image="python:3.10", packages_to_install=["google-cloud-aiplatform"])
@@ -160,87 +151,95 @@ def deploy_model_op(
     vertex_endpoint.uri = endpoint.resource_name
     vertex_model.uri = deployed_model.resource_name
 
-# def setup_model_monitoring(
-#         dataset_bq_uri: str,
-#         target: str,
 
-# ):
-#     from google.cloud.aiplatform import model_monitoring
+def model_monitoring_op(
+    schema: Input[Artifact],
+    dataset_bq_uri: str,
+    target: str,
+    user_email: str,
+    project_id: str,
+    region: str,
+    endpoint: str,
+):
+    from google.cloud.aiplatform import model_monitoring
 
-#     JOB_NAME = "mlops-tutorial"
+    JOB_NAME = "mlops-tutorial"
 
-#     # Sampling rate (optional, default=.8)
-#     LOG_SAMPLE_RATE = 0.8  # @param {type:"number"}
+    # Sampling rate (optional, default=.8)
+    LOG_SAMPLE_RATE = 0.8  # @param {type:"number"}
 
-#     # Monitoring Interval in hours (optional, default=1).
-#     MONITOR_INTERVAL = 1  # @param {type:"number"}
+    # Monitoring Interval in hours (optional, default=1).
+    MONITOR_INTERVAL = 1  # @param {type:"number"}
 
-#     # URI to training dataset.
-#     DATASET_BQ_URI = dataset_bq_uri  # @param {type:"string"}
-#     # Prediction target column name in training dataset.
-#     TARGET = target
+    # URI to training dataset.
+    DATASET_BQ_URI = dataset_bq_uri  # @param {type:"string"}
+    # Prediction target column name in training dataset.
+    TARGET = target
 
-#     # # Skew and drift thresholds.
+    # # Skew and drift thresholds.
 
-#     DEFAULT_THRESHOLD_VALUE = 0.001
+    DEFAULT_THRESHOLD_VALUE = 0.001
 
-#     SKEW_THRESHOLDS = {
-#         "country": DEFAULT_THRESHOLD_VALUE,
-#         "cnt_user_engagement": DEFAULT_THRESHOLD_VALUE,
-#     }
-#     DRIFT_THRESHOLDS = {
-#         "country": DEFAULT_THRESHOLD_VALUE,
-#         "cnt_user_engagement": DEFAULT_THRESHOLD_VALUE,
-#     }
-#     ATTRIB_SKEW_THRESHOLDS = {
-#         "country": DEFAULT_THRESHOLD_VALUE,
-#         "cnt_user_engagement": DEFAULT_THRESHOLD_VALUE,
-#     }
-#     ATTRIB_DRIFT_THRESHOLDS = {
-#         "country": DEFAULT_THRESHOLD_VALUE,
-#         "cnt_user_engagement": DEFAULT_THRESHOLD_VALUE,
-#     }
+    SKEW_THRESHOLDS = {
+        "country": DEFAULT_THRESHOLD_VALUE,
+        "cnt_user_engagement": DEFAULT_THRESHOLD_VALUE,
+    }
+    DRIFT_THRESHOLDS = {
+        "country": DEFAULT_THRESHOLD_VALUE,
+        "cnt_user_engagement": DEFAULT_THRESHOLD_VALUE,
+    }
+    ATTRIB_SKEW_THRESHOLDS = {
+        "country": DEFAULT_THRESHOLD_VALUE,
+        "cnt_user_engagement": DEFAULT_THRESHOLD_VALUE,
+    }
+    ATTRIB_DRIFT_THRESHOLDS = {
+        "country": DEFAULT_THRESHOLD_VALUE,
+        "cnt_user_engagement": DEFAULT_THRESHOLD_VALUE,
+    }
 
-#     skew_config = model_monitoring.SkewDetectionConfig(
-#     data_source=DATASET_BQ_URI,
-#     skew_thresholds=SKEW_THRESHOLDS,
-#     attribute_skew_thresholds=ATTRIB_SKEW_THRESHOLDS,
-#     target_field=TARGET,
-#     )
+    skew_config = model_monitoring.SkewDetectionConfig(
+        data_source=DATASET_BQ_URI,
+        skew_thresholds=SKEW_THRESHOLDS,
+        attribute_skew_thresholds=ATTRIB_SKEW_THRESHOLDS,
+        target_field=TARGET,
+    )
 
-#     drift_config = model_monitoring.DriftDetectionConfig(
-#         drift_thresholds=DRIFT_THRESHOLDS,
-#         attribute_drift_thresholds=ATTRIB_DRIFT_THRESHOLDS,
-#     )
+    drift_config = model_monitoring.DriftDetectionConfig(
+        drift_thresholds=DRIFT_THRESHOLDS,
+        attribute_drift_thresholds=ATTRIB_DRIFT_THRESHOLDS,
+    )
 
-#     explanation_config = model_monitoring.ExplanationConfig()
-#     objective_config = model_monitoring.ObjectiveConfig(
-#         skew_config, drift_config, explanation_config
-#     )
+    explanation_config = model_monitoring.ExplanationConfig()
+    objective_config = model_monitoring.ObjectiveConfig(
+        skew_config, drift_config, explanation_config
+    )
 
-#     # Create sampling configuration
-#     random_sampling = model_monitoring.RandomSampleConfig(sample_rate=LOG_SAMPLE_RATE)
+    # Create sampling configuration
+    random_sampling = model_monitoring.RandomSampleConfig(sample_rate=LOG_SAMPLE_RATE)
 
-#     # Create schedule configuration
-#     schedule_config = model_monitoring.ScheduleConfig(monitor_interval=MONITOR_INTERVAL)
+    # Create schedule configuration
+    schedule_config = model_monitoring.ScheduleConfig(monitor_interval=MONITOR_INTERVAL)
 
-#     # Create alerting configuration.
-#     emails = [USER_EMAIL]
-#     alerting_config = model_monitoring.EmailAlertConfig(
-#         user_emails=emails, enable_logging=True
-#     )
+    # Create alerting configuration.
+    emails = [user_email]
+    alerting_config = model_monitoring.EmailAlertConfig(
+        user_emails=emails, enable_logging=True
+    )
 
-#     # Create the monitoring job.
-#     job = aiplatform.ModelDeploymentMonitoringJob.create(
-#         display_name=JOB_NAME,
-#         logging_sampling_strategy=random_sampling,
-#         schedule_config=schedule_config,
-#         alert_config=alerting_config,
-#         objective_configs=objective_config,
-#         project=PROJECT_ID,
-#         location=REGION,
-#         endpoint=endpoint,
-#     )
+    # Create the monitoring job.
+    aiplatform.ModelDeploymentMonitoringJob.create(
+        display_name="model-monitoring",
+        logging_sampling_strategy=random_sampling,
+        schedule_config=schedule_config,
+        alert_config=alerting_config,
+        objective_configs=objective_config,
+        project=project_id,
+        location=region,
+        endpoint=endpoint,
+        analysis_instance_schema_uri=schema.uri,
+    )
+
+
 
 @dsl.pipeline(
     name="Train and deploy pipeline",
@@ -250,12 +249,8 @@ def train_and_deploy_pipeline(
     project_id: str = os.environ.get("PROJECT_ID"),
     dataset_id: str = os.environ.get("BQ_DATASET"),
     table_name: str = os.environ.get("BQ_TABLE"),
-    # region: str = os.environ.get("REGION"),
-    # feature_store_name: str = os.environ.get("FS_NAME"),
-    # fs_entity_name: str = os.environ.get("FS_ENTITY_NAME"),
+    region: str = os.environ.get("REGION"),
     endpoint: str = os.environ.get("ENDPOINT"),
-    entity_id_column: str = "index_column",
-    time_column: str = "time",
     target_column: str = "price",
     model_name: str = "sklearn-model",
     machine_type: str = "n1-standard-2",
@@ -265,12 +260,8 @@ def train_and_deploy_pipeline(
         project_id=project_id,
         dataset_id=dataset_id,
         table_name=table_name,
-        # region=region,
-        # feature_store_name=feature_store_name,
-        # fs_entity_name=fs_entity_name,
-        entity_id_column=entity_id_column,
-        time_column=time_column,
-        target_column=target_column
+        region=region,
+        target_column=target_column,
     )
     with dsl.ParallelFor(
         items=["RandomForestRegressor", "DecisionTreeRegressor"], parallelism=1
@@ -292,6 +283,15 @@ def train_and_deploy_pipeline(
         machine_type=machine_type,
         serving_container_image_uri=serving_container_image_uri,
         model=best_model_op.outputs["best_model"],
+    )
+    model_monitoring_op(
+        project_id=project_id,
+        schema=fetch_data_op.outputs["analysis_schema"],
+        dataset_bq_uri=f"bq://{project_id}.{dataset_id}.{table_name}",
+        user_email="priyanka4iitd@gmail.com",
+        target=target_column,
+        region=region,
+        endpoint=endpoint,
     )
 
 

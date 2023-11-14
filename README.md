@@ -19,7 +19,7 @@
     ![JSON Key](images/json-key.png)
 - Enable all the required APIs - 
   ![Enabled APIs](images/enabled-apis.png)
-  - Cloud Dataproc API
+  <!-- - Cloud Dataproc API -->
   - Cloud Resource Manager API
   - Vertex AI API
   - Secret Manager API
@@ -37,7 +37,7 @@
 
 - Prerequisites:
   - Install Terraform: https://developer.hashicorp.com/terraform/downloads
-  - Create a bucket with name `tf-state-prod-mlops` in GCP to store the terraform state.
+  - Create a bucket with name `tf-state-mlops` in GCP to store the terraform state.
     ![Tf State Bucket](ss-record/tf-state-bucket.gif)
 
 - Steps:
