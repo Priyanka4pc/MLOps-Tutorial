@@ -26,11 +26,11 @@ steps:
     args:
       - "-c"
       - |
-        export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
+        # export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
         pip install -r pipeline-req.txt
         python preprocess-pipeline.py
     env:
-      - "SERVICE_ACCOUNT=mlops-tutorial@mlops-project-401617.iam.gserviceaccount.com"
+      - "SERVICE_ACCOUNT=mlops-tutorial@sustained-path-405106.iam.gserviceaccount.com"
     dir: "scripts"
 
   - name: "python:3.10"
@@ -39,14 +39,12 @@ steps:
     args:
       - "-c"
       - |
-        export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
+        # export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
         pip install -r pipeline-req.txt
         python pipeline.py
     env:
-      - "SERVICE_ACCOUNT=mlops-tutorial@mlops-project-401617.iam.gserviceaccount.com"
+      - "SERVICE_ACCOUNT=mlops-tutorial@sustained-path-405106.iam.gserviceaccount.com"
     dir: "scripts"
 
-build:
-  logs_bucket: ci-cd-logs-bucket
-# options:
-#   logging: CLOUD_LOGGING_ONLY
+options:
+  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
