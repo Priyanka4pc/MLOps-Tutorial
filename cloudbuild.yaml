@@ -46,5 +46,7 @@ steps:
       - "SERVICE_ACCOUNT=mlops-tutorial@sustained-path-405106.iam.gserviceaccount.com"
     dir: "scripts"
 
+logsBucket: ci-cd-logs-bucket
+
 options:
-  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
+  logging: GCS_ONLY
