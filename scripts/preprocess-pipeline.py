@@ -240,14 +240,14 @@ def preprocess_pipeline(
         dataset_name=bq_dataset,
         table_name=bq_table,
     )
-    create_features(
-        project_id=project_id,
-        region=region,
-        bq_dataset=bq_dataset,
-        bq_table=bq_table,
-        fs_name=fs_name,
-        fs_entity_name=fs_entity_name,
-    ).after(preprocess_op)
+    # create_features(
+    #     project_id=project_id,
+    #     region=region,
+    #     bq_dataset=bq_dataset,
+    #     bq_table=bq_table,
+    #     fs_name=fs_name,
+    #     fs_entity_name=fs_entity_name,
+    # ).after(preprocess_op)
 
 
 if __name__ == "__main__":

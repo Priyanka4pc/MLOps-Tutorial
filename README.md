@@ -39,23 +39,26 @@
   - Install Terraform: https://developer.hashicorp.com/terraform/downloads
   - Create a bucket with name `tf-state-prod-mlops` in GCP to store the terraform state.
     ![Tf State Bucket](ss-record/tf-state-bucket.gif)
-    - Change bucket name in `provider.tf` to the bucket we just created.
-
-  - Variables to change in `variable.tf`:
-    - `project_id`: change it to you google project ID
-    - `creds_file`: change it to the path to your gcp credentials.json file
-    - `suffix`: change it to some other value for uniqueness
 
 - Steps:
   - Create folder with name terraform.
   - Add service-account creds file and rename to `gcp-creds.json`.
   - Add train.csv file to data folder and preprocessing script to scripts folder.
+  - Create `provide.tf` to define google provider and set backed as gcs.
   - Create `main.tf` file with resource definitions (Feature Store, Dataproc, Bigquery).
   - Create `variable.tf` to store all the values to be passed by the user.
   - Create `output.tf` save all the outputs to be used later on.
   - Deploy the infra by applying terraform files. (Or will be taken care of using cloudbuild)
 
->NOTE:The file paths needs to be changed based on operating system, current paths are based on MAC environment, for Windows change accordingly.
+### Changes to be made
+
+- Change bucket name in `provider.tf` to the bucket we just created.
+- Variables to change in `variable.tf`:
+  - `project_id`: change it to you google project ID
+  - `creds_file`: change it to the path to your gcp credentials.json file
+  - `suffix`: change it to some other value for uniqueness
+
+>NOTE: The file paths needs to be changed based on operating system, current paths are based on MAC environment, for Windows change accordingly.
 
 ### Steps to run separately from cloudbuild
 
@@ -65,45 +68,28 @@ terraform init
 terraform apply -auto-approve 
 ```
 
-## 3. Data Preprocessing with Dataproc
+## 3. Data Preprocessing pipeline
 
-- Write a Pyspark script for Dataproc pre-processing job `scripts/pyspark-preprocessing.py`.
-- The script does two tasks:  
-   1. Preprocess the data
-   2. Save the output df to bigquery
+Define two components:
 
-### Steps to run separately from cloudbuild
-
-- Use terraform to perform the following jobs:
-- Create a Dataproc cluster.
-- Create a GCP bucket and store the Pyspark script in it.
-- Run a dataproc job for preprocessing and saving the processed data into bigquery.
-
-  ```sh
-  export GOOGLE_APPLICATION_CREDENTIALS="path/to/gcp-creds.json"
-  terraform apply
-  ```
-
-## 4. Feature store
-
-- Create feature store using terraform (done in milestone 1)
-- Create ingestion jobs to fetch data from bigquery in `feature-store.py`.
+1. Preprocess - to preprocess the data and store to BQ
+2. Feature store - to ingest the data from BQ to feature store
 
 ### Steps to run separately from cloudbuild
 
-- Set the following environment variables:  
-  PROJECT_ID = os.environ.get("PROJECT_ID")
-  REGION = os.environ.get("REGION")
-  DATASET = os.environ.get("BQ_DATASET")
-  SRC_TABLE = os.environ.get("BQ_TABLE")
-  FEATURE_STORE_NAME = os.environ.get("FS_NAME")
-  ENTITY_TYPE_ID = os.environ.get("FS_ENTITY_NAME")
-- Run the following command in terminal:
+```sh
+cd scripts
+export PROJECT_ID=$PROJECT_ID # project id of the project
+export REGION=$REGION # region used for this project
+export DATASET=$DATASET # name of the bq dataset
+export SRC_TABLE=$SRC_TABLE # name of the bq table
+export DATA_BUCKET=$DATA_BUCKET # bucket that has training csv
+export FEATURE_STORE_NAME=$FEATURE_STORE_NAME # feature store name
+export ENTITY_TYPE_ID=$ENTITY_TYPE_ID # feature store entity name
+export GOOGLE_APPLICATION_CREDENTIALS="path/to/gcp-creds.json" # path to gcp credentials.json file
 
-  ```sh
-  export GOOGLE_APPLICATION_CREDENTIALS="path/to/gcp-creds.json"
-  python feature-store.py 
-  ```
+python preprocess-pipeline.py
+```
 
 ## 5. Setup CloudBuild
 
@@ -136,3 +122,18 @@ terraform apply -auto-approve
  ![Pipeline](images/pipeline.png)
 - Wait for the pipeline to complete. Once the pipeline completes, you can see the model deployed on the endpoint which can be used for inferencing.
  ![Model Endpoint](images/model-endpoint.png)
+
+### Steps to run separately from cloudbuild
+
+ ```sh
+cd scripts
+export PROJECT_ID=$PROJECT_ID # project id of the project
+export REGION=$REGION # region used for this project
+export DATASET=$DATASET # name of the bq dataset
+export SRC_TABLE=$SRC_TABLE # name of the bq table
+export FEATURE_STORE_NAME=$FEATURE_STORE_NAME # feature store name
+export ENTITY_TYPE_ID=$ENTITY_TYPE_ID # feature store entity name
+export GOOGLE_APPLICATION_CREDENTIALS="path/to/gcp-creds.json" # path to gcp credentials.json file
+
+python pipeline.py
+```

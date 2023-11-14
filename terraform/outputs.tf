@@ -18,11 +18,15 @@ output "bq_table" {
   value = var.bq_table
 }
 
-output "fs_name" {
-  value = google_vertex_ai_featurestore.featurestore.name
-}
+# output "fs_name" {
+#   value = google_vertex_ai_featurestore.featurestore.name
+# }
 
-output "fs_entity_name" {
-  value = google_vertex_ai_featurestore_entitytype.entity.name
+# output "fs_entity_name" {
+#   value = google_vertex_ai_featurestore_entitytype.entity.name
+# }
+
+output "vertex_endpoint" {
+  value = google_vertex_ai_endpoint.endpoint.id
 }
 
