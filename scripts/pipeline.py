@@ -39,11 +39,10 @@ def fetch_features(
     df.to_csv(dataset.path, index=False)
 
     bq_table = client.get_table(table)
-    yaml = """type: object
-    properties:
-    """
-
     schema = bq_table.schema
+    yaml = """type: object
+properties:
+"""
     for feature in schema:
         if feature.name == target_column:
             continue
@@ -51,9 +50,9 @@ def fetch_features(
             f_type = "string"
         else:
             f_type = "integer"
-        yaml += f"""  {feature.name}:
+        yaml += f"""    {feature.name}:
         type: {f_type}
-    """
+"""
 
     yaml += """required:
     """
@@ -62,10 +61,7 @@ def fetch_features(
             continue
         yaml += f"""- {feature.name}
     """
-
-    print(yaml)
-
-    with open(analysis_schema.path, "w") as f:
+    with open(f"{analysis_schema.path}.yaml", "w") as f:
         f.write(yaml)
 
 
@@ -90,7 +86,6 @@ def train_model_op(
 
     X = data.drop([target_column], axis=1)
     Y = data[target_column]
-
     train_X, test_X, train_Y, test_Y = train_test_split(X, Y, random_state=0)
     if model_name == "DecisionTreeRegressor":
         from sklearn.tree import DecisionTreeRegressor
@@ -125,25 +120,39 @@ def best_model(
         best_model.uri = model_inputs[1].uri
 
 
-@component(base_image="python:3.10", packages_to_install=["google-cloud-aiplatform"])
-def deploy_model_op(
+@component(base_image="python:3.10", packages_to_install=["google-cloud-aiplatform", "pyyaml"])
+def deploy_model(
     project_id: str,
     model_name: str,
     endpoint: str,
     machine_type: str,
     serving_container_image_uri: str,
+    target_column: str,
+    schema: Input[Artifact],
     model: Input[Model],
     vertex_endpoint: Output[Artifact],
     vertex_model: Output[Model],
 ):
     from google.cloud import aiplatform
+    import yaml
+
+    with open(f"{schema.path}.yaml", "r") as stream:
+        schema_dict = yaml.safe_load(stream)
 
     aiplatform.init(project=project_id)
+
+    EXPLANATION_METADATA = aiplatform.explain.ExplanationMetadata(
+        inputs={"input_features": {"encoding": "BAG_OF_FEATURES", "index_feature_mapping": schema_dict["required"]}}, outputs={target_column: {}}
+    )
+    PARAMETERS = {"sampled_shapley_attribution": {"path_count": 10}}
+    parameters = aiplatform.explain.ExplanationParameters(PARAMETERS)
 
     deployed_model = aiplatform.Model.upload(
         display_name=model_name,
         artifact_uri=model.uri,
         serving_container_image_uri=serving_container_image_uri,
+        explanation_parameters=parameters,
+        explanation_metadata=EXPLANATION_METADATA,
     )
     endpoint = aiplatform.Endpoint(endpoint_name=endpoint)
     endpoint = deployed_model.deploy(endpoint=endpoint, machine_type=machine_type)
@@ -152,16 +161,18 @@ def deploy_model_op(
     vertex_model.uri = deployed_model.resource_name
 
 
-def model_monitoring_op(
-    schema: Input[Artifact],
+@component(base_image="python:3.10", packages_to_install=["google-cloud-aiplatform", "pyyaml"])
+def model_monitoring(
+    analysis_schema: Input[Artifact],
     dataset_bq_uri: str,
     target: str,
     user_email: str,
     project_id: str,
     region: str,
-    endpoint: str,
+    endpoint: Input[Artifact],
 ):
-    from google.cloud.aiplatform import model_monitoring
+    import yaml
+    from google.cloud.aiplatform import model_monitoring, ModelDeploymentMonitoringJob
 
     JOB_NAME = "mlops-tutorial"
 
@@ -180,22 +191,16 @@ def model_monitoring_op(
 
     DEFAULT_THRESHOLD_VALUE = 0.001
 
-    SKEW_THRESHOLDS = {
-        "country": DEFAULT_THRESHOLD_VALUE,
-        "cnt_user_engagement": DEFAULT_THRESHOLD_VALUE,
+    with open(f"{analysis_schema.path}.yaml", "r") as stream:
+        schema_dict = yaml.safe_load(stream)
+
+    threshold = {
+        feature: DEFAULT_THRESHOLD_VALUE for feature in schema_dict["required"]
     }
-    DRIFT_THRESHOLDS = {
-        "country": DEFAULT_THRESHOLD_VALUE,
-        "cnt_user_engagement": DEFAULT_THRESHOLD_VALUE,
-    }
-    ATTRIB_SKEW_THRESHOLDS = {
-        "country": DEFAULT_THRESHOLD_VALUE,
-        "cnt_user_engagement": DEFAULT_THRESHOLD_VALUE,
-    }
-    ATTRIB_DRIFT_THRESHOLDS = {
-        "country": DEFAULT_THRESHOLD_VALUE,
-        "cnt_user_engagement": DEFAULT_THRESHOLD_VALUE,
-    }
+    SKEW_THRESHOLDS = threshold
+    DRIFT_THRESHOLDS = threshold
+    ATTRIB_SKEW_THRESHOLDS = threshold
+    ATTRIB_DRIFT_THRESHOLDS = threshold
 
     skew_config = model_monitoring.SkewDetectionConfig(
         data_source=DATASET_BQ_URI,
@@ -211,7 +216,9 @@ def model_monitoring_op(
 
     explanation_config = model_monitoring.ExplanationConfig()
     objective_config = model_monitoring.ObjectiveConfig(
-        skew_config, drift_config, explanation_config
+        skew_detection_config=skew_config,
+        drift_detection_config=drift_config,
+        explanation_config=None,
     )
 
     # Create sampling configuration
@@ -222,23 +229,27 @@ def model_monitoring_op(
 
     # Create alerting configuration.
     emails = [user_email]
-    alerting_config = model_monitoring.EmailAlertConfig(
+    email_alert_config = model_monitoring.EmailAlertConfig(
         user_emails=emails, enable_logging=True
     )
 
+    alerting_config = email_alert_config
+    # once notification channels is supported in model_monitoring
+    # alerting_config = model_monitoring.AlertConfig(email_alert_config, enable_logging=True, notification_channels=["projects/mlops-project-401617/notificationChannels/13120585024516926294"])
+
     # Create the monitoring job.
-    aiplatform.ModelDeploymentMonitoringJob.create(
-        display_name="model-monitoring",
+    ModelDeploymentMonitoringJob.create(
+        display_name=JOB_NAME,
         logging_sampling_strategy=random_sampling,
         schedule_config=schedule_config,
         alert_config=alerting_config,
         objective_configs=objective_config,
         project=project_id,
         location=region,
-        endpoint=endpoint,
-        analysis_instance_schema_uri=schema.uri,
+        endpoint=endpoint.uri,
+        analysis_instance_schema_uri=f"{analysis_schema.uri}.yaml",
+        predict_instance_schema_uri=f"{analysis_schema.uri}.yaml",
     )
-
 
 
 @dsl.pipeline(
@@ -253,14 +264,13 @@ def train_and_deploy_pipeline(
     endpoint: str = os.environ.get("ENDPOINT"),
     target_column: str = "price",
     model_name: str = "sklearn-model",
-    machine_type: str = "n1-standard-2",
+    machine_type: str = "n1-standard-4",
     serving_container_image_uri: str = "us-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-2:latest",
 ):
     fetch_data_op = fetch_features(
         project_id=project_id,
         dataset_id=dataset_id,
         table_name=table_name,
-        region=region,
         target_column=target_column,
     )
     with dsl.ParallelFor(
@@ -276,22 +286,26 @@ def train_and_deploy_pipeline(
         model_inputs=dsl.Collected(train.outputs["model"]),
         accuracy_inputs=dsl.Collected(train.outputs["accuracy"]),
     )
-    deploy_model_op(
+
+    deploy_model_op = deploy_model(
         project_id=project_id,
         model_name=model_name,
         endpoint=endpoint,
         machine_type=machine_type,
+        target_column=target_column,
+        schema=fetch_data_op.outputs["analysis_schema"],
         serving_container_image_uri=serving_container_image_uri,
         model=best_model_op.outputs["best_model"],
     )
-    model_monitoring_op(
+
+    model_monitoring(
         project_id=project_id,
-        schema=fetch_data_op.outputs["analysis_schema"],
+        analysis_schema=fetch_data_op.outputs["analysis_schema"],
         dataset_bq_uri=f"bq://{project_id}.{dataset_id}.{table_name}",
         user_email="priyanka4iitd@gmail.com",
         target=target_column,
         region=region,
-        endpoint=endpoint,
+        endpoint=deploy_model_op.outputs["vertex_endpoint"],
     )
 
 
