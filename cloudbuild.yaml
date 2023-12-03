@@ -8,7 +8,7 @@ steps:
       - "pipefail"
       - "-c"
       - |
-        export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
+        # export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
         terraform init
         terraform apply -auto-approve -lock=false
         echo PROJECT_ID=$(terraform output -raw project_id) > /workspace/.env
@@ -49,7 +49,7 @@ steps:
     args:
       - "-c"
       - |
-        export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
+        # export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
         pip install -r pipeline-req.txt
         python prediction-pipeline.py
     dir: "scripts"
