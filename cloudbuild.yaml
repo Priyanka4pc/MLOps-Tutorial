@@ -27,7 +27,7 @@ steps:
     args:
       - "-c"
       - |
-        export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
+        # export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
         pip install -r pipeline-req.txt
         python preprocess-pipeline.py
     dir: "scripts"
@@ -38,7 +38,7 @@ steps:
     args:
       - "-c"
       - |
-        export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
+        # export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
         pip install -r pipeline-req.txt
         python pipeline.py
     dir: "scripts"
@@ -54,7 +54,5 @@ steps:
         python prediction-pipeline.py
     dir: "scripts"
 
-logsBucket: ci-cd-logs-bucket
-
 options:
-  logging: GCS_ONLY
+  logging: CLOUD_LOGGING_ONLY
