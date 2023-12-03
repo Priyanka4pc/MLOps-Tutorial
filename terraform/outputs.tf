@@ -14,8 +14,12 @@ output "dataset_name" {
   value = google_bigquery_dataset.example_dataset.dataset_id
 }
 
-output "bq_table" {
-  value = var.bq_table
+output "train_bq_table" {
+  value = var.train_bq_table
+}
+
+output "test_bq_table" {
+  value = var.test_bq_table
 }
 
 # output "fs_name" {
@@ -30,3 +34,6 @@ output "vertex_endpoint" {
   value = google_vertex_ai_endpoint.endpoint.id
 }
 
+output "service_account" {
+  value = var.service_account
+}

@@ -8,42 +8,50 @@ steps:
       - "pipefail"
       - "-c"
       - |
+        export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
         terraform init
-        terraform apply -auto-approve
+        terraform apply -auto-approve -lock=false
         echo PROJECT_ID=$(terraform output -raw project_id) > /workspace/.env
         echo REGION=$(terraform output -raw region) >> /workspace/.env
         echo DATA_BUCKET = $(terraform output -raw gcs_dataset_bucket) >> /workspace/.env
         echo BQ_DATASET=$(terraform output -raw dataset_name) >> /workspace/.env
-        echo BQ_TABLE=$(terraform output -raw bq_table) >> /workspace/.env
-        echo FS_NAME=$(terraform output -raw fs_name) >> /workspace/.env
-        echo FS_ENTITY_NAME=$(terraform output -raw fs_entity_name) >> /workspace/.env
+        echo TRAIN_BQ_TABLE=$(terraform output -raw train_bq_table) >> /workspace/.env
+        echo TEST_BQ_TABLE=$(terraform output -raw test_bq_table) >> /workspace/.env
         echo ENDPOINT=$(terraform output -raw vertex_endpoint) >> /workspace/.env
+        echo SERVICE_ACCOUNT=$(terraform output -raw service_account) >> /workspace/.env
     dir: "terraform"
 
-  - name: "python:3.10"
-    id: preprocess
-    entrypoint: "bash"
-    args:
-      - "-c"
-      - |
-        # export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
-        pip install -r pipeline-req.txt
-        python preprocess-pipeline.py
-    env:
-      - "SERVICE_ACCOUNT=mlops-tutorial@sustained-path-405106.iam.gserviceaccount.com"
-    dir: "scripts"
+  # - name: "python:3.10"
+  #   id: preprocess
+  #   entrypoint: "bash"
+  #   args:
+  #     - "-c"
+  #     - |
+  #       export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
+  #       pip install -r pipeline-req.txt
+  #       python preprocess-pipeline.py
+  #   dir: "scripts"
+
+  # - name: "python:3.10"
+  #   id: vertex
+  #   entrypoint: "bash"
+  #   args:
+  #     - "-c"
+  #     - |
+  #       export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
+  #       pip install -r pipeline-req.txt
+  #       python pipeline.py
+  #   dir: "scripts"
 
   - name: "python:3.10"
-    id: vertex
+    id: prediction
     entrypoint: "bash"
     args:
       - "-c"
       - |
-        # export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
+        export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
         pip install -r pipeline-req.txt
-        python pipeline.py
-    env:
-      - "SERVICE_ACCOUNT=mlops-tutorial@sustained-path-405106.iam.gserviceaccount.com"
+        python prediction-pipeline.py
     dir: "scripts"
 
 logsBucket: ci-cd-logs-bucket

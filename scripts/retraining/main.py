@@ -1,13 +1,8 @@
 import os
-from dotenv import load_dotenv
 from kfp import dsl, compiler
 from typing import List
 from kfp.dsl import component, Input, Output, Metrics, Model, Artifact, Dataset
-
 from google.cloud import aiplatform
-
-load_dotenv("/workspace/.env")
-
 
 @component(
     base_image="python:3.10",
@@ -18,21 +13,36 @@ load_dotenv("/workspace/.env")
 def fetch_features(
     project_id: str,
     dataset_id: str,
-    table_name: str,
+    train_table_name: str,
+    test_table_name: str,
     dataset: Output[Dataset],
 ):
     from google.cloud import bigquery
+    import pandas as pd
 
     client = bigquery.Client(project=project_id)
 
-    table = f"{project_id}.{dataset_id}.{table_name}"
-    query = f"""
-    SELECT * FROM {table}
+    train_table = f"{project_id}.{dataset_id}.{train_table_name}"
+    test_table = f"{project_id}.{dataset_id}.{test_table_name}"
+    train_query = f"""
+    SELECT * FROM {train_table}
+    """
+    test_query = f"""
+    SELECT * FROM {test_table}
     """
     job_config = bigquery.QueryJobConfig()
-    query_job = client.query(query=query, job_config=job_config)
-    df = query_job.result().to_dataframe()
+    train_query_job = client.query(query=train_query, job_config=job_config)
+    test_query_job = client.query(query=test_query, job_config=job_config)
+    train_df = train_query_job.result().to_dataframe()
+    test_df = test_query_job.result().to_dataframe()
+    df = pd.concat([train_df, test_df]).reset_index(drop=True)
     df.to_csv(dataset.path, index=False)
+
+    # delete the test data merged with training data
+    test_delete_query = f"""
+    DELETE FROM {test_table} WHERE true;
+    """
+    client.query(query=test_delete_query, job_config=job_config)
 
 @component(
     base_image="python:3.10",
@@ -97,7 +107,6 @@ def deploy_model(
     model_name: str,
     endpoint: str,
     machine_type: str,
-    target_column: str,
     serving_container_image_uri: str,
     model: Input[Model],
     vertex_endpoint: Output[Artifact],
@@ -108,7 +117,7 @@ def deploy_model(
     from google.cloud.aiplatform_v1.types.explanation import ExplanationParameters
 
     aiplatform.init(project=project_id)
-    exp_metadata = {"inputs": {"Input_features": {}}, "outputs": {target_column: {}}}
+    exp_metadata = {"inputs": {"Input_feature": {}}, "outputs": {"Price": {}}}
     deployed_model = aiplatform.Model.upload(
         display_name=model_name,
         artifact_uri=model.uri,
@@ -117,86 +126,47 @@ def deploy_model(
         explanation_parameters=ExplanationParameters(
             sampled_shapley_attribution=SampledShapleyAttribution(path_count=25)
         ),
+
     )
     endpoint = aiplatform.Endpoint(endpoint_name=endpoint)
-    endpoint = deployed_model.deploy(endpoint=endpoint, machine_type=machine_type)
+    endpoint = deployed_model.deploy(endpoint=endpoint, machine_type=machine_type,traffic_percentage=100)
+
+    deployed_models = endpoint.list_models()
+    for deployed_model in deployed_models:
+        if (
+            deployed_model.display_name == model_name
+            and deployed_model.model_version_id != model.version_id
+        ):
+            endpoint.undeploy(deployed_model.id)
 
     vertex_endpoint.uri = endpoint.resource_name
     vertex_model.uri = deployed_model.resource_name
 
 
-@component(
-    base_image="python:3.10", packages_to_install=["google-cloud-aiplatform"]
-)
-def model_monitoring(
-    dataset_bq_uri: str,
-    target: str,
-    user_email: str,
-    project_id: str,
-    region: str,
-    endpoint: Input[Artifact],
-):
-    from google.cloud.aiplatform import model_monitoring, ModelDeploymentMonitoringJob
-
-    JOB_NAME = "mlops-tutorial"
-    LOG_SAMPLE_RATE = 0.8
-    MONITOR_INTERVAL = 1
-    DATASET_BQ_URI = dataset_bq_uri
-    TARGET = target
-
-    skew_config = model_monitoring.SkewDetectionConfig(
-        data_source=DATASET_BQ_URI,
-        target_field=TARGET,
-    )
-    drift_config = model_monitoring.DriftDetectionConfig()
-    explanation_config = model_monitoring.ExplanationConfig()
-    objective_config = model_monitoring.ObjectiveConfig(
-        skew_detection_config=skew_config,
-        drift_detection_config=drift_config,
-        explanation_config=explanation_config,
-    )
-
-    random_sampling = model_monitoring.RandomSampleConfig(sample_rate=LOG_SAMPLE_RATE)
-    schedule_config = model_monitoring.ScheduleConfig(monitor_interval=MONITOR_INTERVAL)
-    emails = [user_email]
-    email_alert_config = model_monitoring.EmailAlertConfig(
-        user_emails=emails, enable_logging=True
-    )
-
-    alerting_config = email_alert_config
-
-    ModelDeploymentMonitoringJob.create(
-        display_name=JOB_NAME,
-        logging_sampling_strategy=random_sampling,
-        schedule_config=schedule_config,
-        alert_config=alerting_config,
-        objective_configs=objective_config,
-        project=project_id,
-        location=region,
-        endpoint=endpoint.uri,
-    )
-
 
 @dsl.pipeline(
-    name="Train and deploy pipeline",
-    description="A pipeline that trains a model and deploys it to vertex",
+    name="Retrain and deploy pipeline",
+    description="A pipeline that retrains a model on latest data and deploys it to vertex",
 )
-def train_and_deploy_pipeline(
+def retrain_and_deploy_pipeline(
     project_id: str = os.environ.get("PROJECT_ID"),
     dataset_id: str = os.environ.get("BQ_DATASET"),
-    table_name: str = os.environ.get("TRAIN_BQ_TABLE"),
-    region: str = os.environ.get("REGION"),
+    test_table_name: str = os.environ.get("TEST_BQ_TABLE"),
+    train_table_name: str = os.environ.get("TRAIN_BQ_TABLE"),
     endpoint: str = os.environ.get("ENDPOINT"),
     target_column: str = "price",
     model_name: str = "sklearn-model",
     machine_type: str = "n1-standard-2",
     serving_container_image_uri: str = "us-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-0:latest",
 ):
+
     fetch_data_op = fetch_features(
         project_id=project_id,
         dataset_id=dataset_id,
-        table_name=table_name,
+        test_table_name=test_table_name,
+        train_table_name=train_table_name
     )
+
     with dsl.ParallelFor(
         items=["RandomForestRegressor", "DecisionTreeRegressor"], parallelism=1
     ) as item:
@@ -211,34 +181,25 @@ def train_and_deploy_pipeline(
         accuracy_inputs=dsl.Collected(train.outputs["accuracy"]),
     )
 
-    deploy_model_op = deploy_model(
+    deploy_model(
         project_id=project_id,
         model_name=model_name,
         endpoint=endpoint,
         machine_type=machine_type,
-        target_column=target_column,
         serving_container_image_uri=serving_container_image_uri,
-        model=best_model_op.outputs["best_model"],
-    )
-
-    model_monitoring(
-        project_id=project_id,
-        dataset_bq_uri=f"bq://{project_id}.{dataset_id}.{table_name}",
-        user_email="priyanka4iitd@gmail.com",
-        target=target_column,
-        region=region,
-        endpoint=deploy_model_op.outputs["vertex_endpoint"],
+        model=best_model_op.outputs["best_model"]
     )
 
 
-if __name__ == "__main__":
-    pipeline_file_name = "train_and_deploy_pipeline.yaml"
-    compiler.Compiler().compile(train_and_deploy_pipeline, pipeline_file_name)
+
+def compile_pipeline(event_data, context):
+    pipeline_file_name = "retrain_and_deploy_pipeline.yaml"
+    compiler.Compiler().compile(retrain_and_deploy_pipeline, pipeline_file_name)
 
     pipeline_job = aiplatform.PipelineJob(
-        display_name=f"Train&DeployPipeline",
+        display_name=f"Retrain&DeployPipeline",
         template_path=pipeline_file_name,
-        enable_caching=False,
+        enable_caching=True,
     )
 
     response = pipeline_job.submit(service_account=os.environ.get("SERVICE_ACCOUNT"))

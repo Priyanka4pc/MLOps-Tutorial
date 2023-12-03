@@ -28,15 +28,32 @@ variable "data_file" {
     default = "../data/train_data.csv"
 }
 
+
+variable "files" {
+  type = map(string)
+  default = {
+    # sourcefile = destfile
+    "../data/train_data.csv" = "train_data.csv",
+    "../data/test_data.csv"  = "test_data.csv"
+  }
+}
+
 # path to the script file
 # variable "script_file" {
 #     default = "../scripts/pyspark-preprocess.py"
 # }
 
-variable "bq_table" {
-    default = "preprocessed_data"
+variable "train_bq_table" {
+    default = "train_preprocessed_data"
 }
 
+variable "test_bq_table" {
+    default = "test_preprocessed_data"
+}
 variable "suffix" {
     default = "141123"
+}
+
+variable "service_account" {
+    default = "mlops-tutorial@sustained-path-405106.iam.gserviceaccount.com"
 }
