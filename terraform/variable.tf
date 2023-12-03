@@ -1,11 +1,6 @@
 # name of the project
 variable "project_id" {
-    default = "sustained-path-405106"
-}
-
-# name of the credentials file
-variable "creds_file" {
-    default = "gcp-creds.json"
+    default = "mlops-project-407019"
 }
 
 # name of the region to use
@@ -38,10 +33,6 @@ variable "files" {
   }
 }
 
-# path to the script file
-# variable "script_file" {
-#     default = "../scripts/pyspark-preprocess.py"
-# }
 
 variable "train_bq_table" {
     default = "train_preprocessed_data"
@@ -51,9 +42,13 @@ variable "test_bq_table" {
     default = "test_preprocessed_data"
 }
 variable "suffix" {
-    default = "141123"
+    default = "41223"
 }
 
 variable "service_account" {
-    default = "mlops-tutorial@sustained-path-405106.iam.gserviceaccount.com"
+    default = "mlops-tutorial@mlops-project-407019.iam.gserviceaccount.com"
+}
+
+variable "retraining_folder" {
+    default = "../scripts/retraining/"
 }

@@ -79,7 +79,7 @@ resource "google_storage_bucket" "bucket" {
 data "archive_file" "default" {
   type        = "zip"
   output_path = "/tmp/function-source.zip"
-  source_dir  = "../scripts/retraining/"
+  source_dir  = var.retraining_folder
 }
 
 resource "google_storage_bucket_object" "archive" {
@@ -108,7 +108,7 @@ resource "google_cloudfunctions2_function" "default" {
   service_config {
     max_instance_count = 3
     min_instance_count = 1
-    available_memory   = "256M"
+    available_memory   = "1000M"
     timeout_seconds    = 60
     all_traffic_on_latest_revision = true
     service_account_email          = var.service_account
