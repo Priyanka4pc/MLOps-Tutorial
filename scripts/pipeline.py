@@ -36,7 +36,7 @@ def fetch_features(
 
 @component(
     base_image="python:3.10",
-    packages_to_install=["scikit-learn==1.0.2", "pandas==1.3.5", "joblib==1.1.0"],
+    packages_to_install=["scikit-learn==1.3.0", "pandas==1.3.5", "joblib==1.1.0"],
 )
 def train_model_op(
     model_name: str,
@@ -189,8 +189,8 @@ def train_and_deploy_pipeline(
     endpoint: str = os.environ.get("ENDPOINT"),
     target_column: str = "price",
     model_name: str = "sklearn-model",
-    machine_type: str = "n1-standard-2",
-    serving_container_image_uri: str = "us-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-0:latest",
+    machine_type: str = "n1-standard-4",
+    serving_container_image_uri: str = "us-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-3:latest",
 ):
     fetch_data_op = fetch_features(
         project_id=project_id,
@@ -198,7 +198,7 @@ def train_and_deploy_pipeline(
         table_name=table_name,
     )
     with dsl.ParallelFor(
-        items=["RandomForestRegressor", "DecisionTreeRegressor"], parallelism=1
+        items=["RandomForestRegressor", "DecisionTreeRegressor"], parallelism=2
     ) as item:
         train = train_model_op(
             model_name=item,
