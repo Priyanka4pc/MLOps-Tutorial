@@ -36,7 +36,7 @@ def fetch_features(
 
 @component(
     base_image="python:3.10",
-    packages_to_install=["scikit-learn==1.3.0", "pandas", "joblib"],
+    packages_to_install=["scikit-learn==1.0", "pandas", "joblib"],
 )
 def train_model_op(
     model_name: str,
@@ -190,7 +190,7 @@ def train_and_deploy_pipeline(
     target_column: str = "price",
     model_name: str = "sklearn-model",
     machine_type: str = "n1-standard-4",
-    serving_container_image_uri: str = "us-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-3:latest",
+    serving_container_image_uri: str = "us-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-0:latest",
 ):
     fetch_data_op = fetch_features(
         project_id=project_id,
