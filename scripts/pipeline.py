@@ -36,7 +36,7 @@ def fetch_features(
 
 @component(
     base_image="python:3.10",
-    packages_to_install=["scikit-learn==1.0", "pandas", "joblib"],
+    packages_to_install=["scikit-learn==1.0", "pandas==1.3.5", "joblib==1.1.0"],
 )
 def train_model_op(
     model_name: str,
