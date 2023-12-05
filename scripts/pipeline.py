@@ -140,7 +140,7 @@ def model_monitoring(
 
     JOB_NAME = "mlops-tutorial"
     LOG_SAMPLE_RATE = 0.8
-    MONITOR_INTERVAL = 1
+    MONITOR_INTERVAL = 5
     DATASET_BQ_URI = dataset_bq_uri
     TARGET = target
 

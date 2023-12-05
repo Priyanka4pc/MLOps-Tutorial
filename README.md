@@ -147,6 +147,3 @@ python pipeline.py
 2. Create cloud function and add pub/sub trigger and upload the retraining pipeline to run whenever an alert comes.
 
 >> NOTE: 1000 prediction requests are required for monitoring pipeline to start and once the pipeline is in running state, to send alert to notification channel setting needs to be configured manually once the monitoring pipeline is running.
-   
-A bunch of apis need to be enables for pub/sub triggering
-When creating trigger I had to grant some extra permission to the pub/sub service account

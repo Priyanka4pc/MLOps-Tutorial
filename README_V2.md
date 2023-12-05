@@ -33,7 +33,7 @@
     ```sh
     gcloud auth login
     gcloud config set project $PROJECT_ID
-    gcloud services enable cloudresourcemanager.googleapis.com aiplatform.googleapis.com secretmanager.googleapis.com cloudbuild.googleapis.com iamcredentials.googleapis.com iam.googleapis.com cloudfunctions.googleapis.com pubsub.googleapis.com eventarc.googleapis.com compute.googleapis.com
+    gcloud services enable cloudresourcemanager.googleapis.com aiplatform.googleapis.com secretmanager.googleapis.com cloudbuild.googleapis.com iamcredentials.googleapis.com iam.googleapis.com cloudfunctions.googleapis.com pubsub.googleapis.com eventarc.googleapis.com compute.googleapis.com run.googleapis.com
     ```
 
 - Set up a version control repository for code and documentation.
@@ -90,3 +90,15 @@
 - Now commit the changes to github, on every commit a cloudbuild pipeline will be triggered.
   ![Build](images/build.png)
 
+## 4. Monitoring and Notification Channel
+
+- Add Pub/Sub publisher role to this service account:
+  `service-PROJECT_NUMBER@gcp-sa-monitoring-notification.iam.gserviceaccount.com`
+  ![Notification Channel SA Role](ss-record/notification-channel-permission.gif)
+- Alert to Notification Channel needs to be done manually, since SDK doesn't support that as of now. It can only be done when the monitoring pipeline is in running state. The current monitoring pipeline takes around 2hrs 30mins to calculate the baseline.
+  ![Add Notification Channel](ss-record/notification-channel.gif)
+
+- Once this setting is updated we can create predictions with drifted features and see the alerts in next monitoring pipeline.
+- Once an alert is created the retraining pipeline is triggered which will train on the new data + test data and deploy a new version of the model.
+
+>> NOTE: 1000 monitoring requests are required for the monitoring pipeline to start.
