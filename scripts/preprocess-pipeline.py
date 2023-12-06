@@ -94,7 +94,7 @@ if __name__ == "__main__":
     pipeline_job = aiplatform.PipelineJob(
         display_name=f"PreprocessPipeline",
         template_path=pipeline_file_name,
-        enable_caching=True,
+        enable_caching=False,
     )
 
     response = pipeline_job.submit(service_account=os.environ.get("SERVICE_ACCOUNT"))
