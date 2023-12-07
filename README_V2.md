@@ -55,11 +55,12 @@
 
 - Prerequisites:
   - Install Terraform: https://developer.hashicorp.com/terraform/downloads
-  - Create a bucket with name `tf-state-mlops` in GCP to store the terraform state.
+  - Create a bucket with name `tf-state-mlops` in GCP to store the terraform state. (Change the bucket name if not available)
     ![Tf State Bucket](ss-record/tf-state-bucket.gif)
     ```sh
-    gcloud storage buckets create gs://tf-state-mlops-tut --project=mlops-project-407019  --location=us-central1
+    gcloud storage buckets create gs://tf-state-mlops-tut  --location=us-central1
     ```
+
 
 ### Changes to be made
 
@@ -99,6 +100,5 @@
   ![Add Notification Channel](ss-record/notification-channel.gif)
 
 - Once this setting is updated we can create predictions with drifted features and see the alerts in next monitoring pipeline.
-- Once an alert is created the retraining pipeline is triggered which will train on the new data + test data and deploy a new version of the model.
-
->> NOTE: 1000 monitoring requests are required for the monitoring pipeline to start.
+- Once an alert is created the retraining pipeline is triggered which will train on the new data + test data and deploy a new version of the model and update the monitoring job for the new model. It'll again calculate the baseline and then will transition from updating state to running state.
+- 1000 monitoring requests are required for the monitoring pipeline to calculate the schema.

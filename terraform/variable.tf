@@ -1,6 +1,6 @@
 # name of the project
 variable "project_id" {
-    default = "mlops-project-407019"
+    default = "mlops-407423"
 }
 
 # name of the region to use
@@ -42,11 +42,11 @@ variable "test_bq_table" {
     default = "test_preprocessed_data"
 }
 variable "suffix" {
-    default = "41223"
+    default = "81223"
 }
 
 variable "service_account" {
-    default = "mlops-tutorial@mlops-project-407019.iam.gserviceaccount.com"
+    default = "mlops-606@mlops-407423.iam.gserviceaccount.com"
 }
 
 variable "retraining_folder" {

@@ -21,38 +21,38 @@ steps:
         echo SERVICE_ACCOUNT=$(terraform output -raw service_account) >> /workspace/.env
     dir: "terraform"
 
-  # - name: "python:3.10"
-  #   id: preprocess-pipeline
-  #   entrypoint: "bash"
-  #   args:
-  #     - "-c"
-  #     - |
-  #       # export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
-  #       pip install -r pipeline-req.txt
-  #       python preprocess-pipeline.py
-  #   dir: "scripts"
+  - name: "python:3.10"
+    id: preprocess-pipeline
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        # export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
+        pip install -r pipeline-req.txt
+        python preprocess-pipeline.py
+    dir: "scripts"
 
-  # - name: "python:3.10"
-  #   id: training-pipeline
-  #   entrypoint: "bash"
-  #   args:
-  #     - "-c"
-  #     - |
-  #       # export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
-  #       pip install -r pipeline-req.txt
-  #       python pipeline.py
-  #   dir: "scripts"
+  - name: "python:3.10"
+    id: training-pipeline
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        # export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
+        pip install -r pipeline-req.txt
+        python pipeline.py
+    dir: "scripts"
 
-  # - name: "python:3.10"
-  #   id: prediction-pipeline
-  #   entrypoint: "bash"
-  #   args:
-  #     - "-c"
-  #     - |
-  #       # export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
-  #       pip install -r pipeline-req.txt
-  #       python prediction-pipeline.py
-  #   dir: "scripts"
+  - name: "python:3.10"
+    id: prediction-pipeline
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        # export GOOGLE_APPLICATION_CREDENTIALS="../terraform/gcp-creds.json"
+        pip install -r pipeline-req.txt
+        python prediction-pipeline.py
+    dir: "scripts"
 
 options:
   logging: CLOUD_LOGGING_ONLY

@@ -1,7 +1,7 @@
 # define terraform provider
 terraform {
   backend "gcs" {
-    bucket = "tf-state-mlops-tut"
+    bucket = "tf-state-mlops-tut-1"
     prefix = "terraform/state"
   }
 }
