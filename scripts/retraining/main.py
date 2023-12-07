@@ -161,10 +161,7 @@ def model_monitoring(
         drift_detection_config=drift_config,
         explanation_config=explanation_config,
     )
-    mm_id = ModelDeploymentMonitoringJob.list(filter=f"display_name={JOB_NAME}")[
-        0
-    ].resource_name
-    mm_job = ModelDeploymentMonitoringJob(mm_id)
+    mm_job = ModelDeploymentMonitoringJob.list(filter=f"display_name={JOB_NAME}")[0]
     mm_job.update(
         objective_configs=objective_config,
     )
