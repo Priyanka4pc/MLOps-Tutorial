@@ -170,6 +170,7 @@ def model_monitoring(
         logging_sampling_strategy=random_sampling,
         schedule_config=schedule_config,
         alert_config=alerting_config,
+        enable_monitoring_pipeline_logs=True,
         objective_configs=objective_config,
         project=project_id,
         location=region,

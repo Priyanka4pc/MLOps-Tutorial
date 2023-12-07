@@ -4,6 +4,7 @@ from typing import List
 from kfp.dsl import component, Input, Output, Metrics, Model, Artifact, Dataset
 from google.cloud import aiplatform
 
+
 @component(
     base_image="python:3.10",
     packages_to_install=[
@@ -43,6 +44,7 @@ def fetch_features(
     DELETE FROM {test_table} WHERE true;
     """
     client.query(query=test_delete_query, job_config=job_config)
+
 
 @component(
     base_image="python:3.10",
@@ -99,12 +101,9 @@ def best_model(
         best_model.uri = model_inputs[1].uri
 
 
-@component(
-    base_image="python:3.10", packages_to_install=["google-cloud-aiplatform"]
-)
+@component(base_image="python:3.10", packages_to_install=["google-cloud-aiplatform"])
 def deploy_model(
     project_id: str,
-    model_name: str,
     endpoint: str,
     machine_type: str,
     serving_container_image_uri: str,
@@ -118,30 +117,57 @@ def deploy_model(
 
     aiplatform.init(project=project_id)
     exp_metadata = {"inputs": {"Input_feature": {}}, "outputs": {"Price": {}}}
+    endpoint = aiplatform.Endpoint(endpoint_name=endpoint)
+    parent_model = endpoint.list_models()[0]
     deployed_model = aiplatform.Model.upload(
-        display_name=model_name,
+        parent_model=parent_model.model,
         artifact_uri=model.uri,
+        is_default_version=True,
         serving_container_image_uri=serving_container_image_uri,
         explanation_metadata=exp_metadata,
         explanation_parameters=ExplanationParameters(
             sampled_shapley_attribution=SampledShapleyAttribution(path_count=25)
         ),
-
     )
-    endpoint = aiplatform.Endpoint(endpoint_name=endpoint)
-    endpoint = deployed_model.deploy(endpoint=endpoint, machine_type=machine_type,traffic_percentage=100)
+    endpoint = deployed_model.deploy(
+        endpoint=endpoint, machine_type=machine_type, traffic_percentage=100
+    )
 
-    deployed_models = endpoint.list_models()
-    for deployed_model in deployed_models:
-        if (
-            deployed_model.display_name == model_name
-            and deployed_model.model_version_id != model.version_id
-        ):
-            endpoint.undeploy(deployed_model.id)
+    endpoint.undeploy(parent_model.id)
 
     vertex_endpoint.uri = endpoint.resource_name
     vertex_model.uri = deployed_model.resource_name
 
+
+@component(base_image="python:3.10", packages_to_install=["google-cloud-aiplatform"])
+def model_monitoring(
+    dataset_bq_uri: str,
+    target: str,
+):
+    from google.cloud.aiplatform import model_monitoring, ModelDeploymentMonitoringJob
+
+    JOB_NAME = "mlops-tutorial"
+    DATASET_BQ_URI = dataset_bq_uri
+    TARGET = target
+
+    skew_config = model_monitoring.SkewDetectionConfig(
+        data_source=DATASET_BQ_URI,
+        target_field=TARGET,
+    )
+    drift_config = model_monitoring.DriftDetectionConfig()
+    explanation_config = model_monitoring.ExplanationConfig()
+    objective_config = model_monitoring.ObjectiveConfig(
+        skew_detection_config=skew_config,
+        drift_detection_config=drift_config,
+        explanation_config=explanation_config,
+    )
+    mm_id = ModelDeploymentMonitoringJob.list(filter=f"display_name={JOB_NAME}")[
+        0
+    ].resource_name
+    mm_job = ModelDeploymentMonitoringJob(mm_id)
+    mm_job.update(
+        objective_configs=objective_config,
+    )
 
 
 @dsl.pipeline(
@@ -155,16 +181,14 @@ def retrain_and_deploy_pipeline(
     train_table_name: str = os.environ.get("TRAIN_BQ_TABLE"),
     endpoint: str = os.environ.get("ENDPOINT"),
     target_column: str = "price",
-    model_name: str = "sklearn-model",
-    machine_type: str = "n1-standard-2",
+    machine_type: str = "n1-standard-4",
     serving_container_image_uri: str = "us-docker.pkg.dev/vertex-ai/prediction/sklearn-cpu.1-0:latest",
 ):
-
     fetch_data_op = fetch_features(
         project_id=project_id,
         dataset_id=dataset_id,
         test_table_name=test_table_name,
-        train_table_name=train_table_name
+        train_table_name=train_table_name,
     )
 
     with dsl.ParallelFor(
@@ -181,15 +205,18 @@ def retrain_and_deploy_pipeline(
         accuracy_inputs=dsl.Collected(train.outputs["accuracy"]),
     )
 
-    deploy_model(
+    deploy_model_op = deploy_model(
         project_id=project_id,
-        model_name=model_name,
         endpoint=endpoint,
         machine_type=machine_type,
         serving_container_image_uri=serving_container_image_uri,
-        model=best_model_op.outputs["best_model"]
+        model=best_model_op.outputs["best_model"],
     )
 
+    model_monitoring(
+        target=target_column,
+        dataset_bq_uri=f"bq://{project_id}.{dataset_id}.{train_table_name}",
+    ).after(deploy_model_op)
 
 
 def compile_pipeline(event_data, context):

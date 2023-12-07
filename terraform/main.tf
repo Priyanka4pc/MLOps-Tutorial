@@ -8,10 +8,10 @@ resource "google_storage_bucket" "dataset_bucket" {
 
 # upload data to bucket
 resource "google_storage_bucket_object" "csv_upload" {
-  for_each = var.files
-  name     = each.value
-  source   = "${path.module}/${each.key}"
-  bucket   = google_storage_bucket.dataset_bucket.name
+  for_each     = var.files
+  name         = each.value
+  source       = "${path.module}/${each.key}"
+  bucket       = google_storage_bucket.dataset_bucket.name
   content_type = "text/csv"
 }
 
@@ -37,7 +37,7 @@ resource "google_vertex_ai_endpoint" "endpoint" {
 }
 
 resource "google_pubsub_topic" "monitoring_topic" {
-  name = "monitoring-topic"
+  name                       = "monitoring-topic"
   message_retention_duration = "86600s"
 }
 
@@ -63,14 +63,14 @@ resource "google_pubsub_subscription" "example" {
 
 resource "google_monitoring_notification_channel" "basic" {
   display_name = "Model Monitoring Notification Channel"
-  type = "pubsub"
+  type         = "pubsub"
   labels = {
-     topic = "projects/${var.project_id}/topics/${google_pubsub_topic.monitoring_topic.name}"
-   }
+    topic = "projects/${var.project_id}/topics/${google_pubsub_topic.monitoring_topic.name}"
+  }
 }
 
 resource "google_storage_bucket" "bucket" {
-  name     = "cloud-functions-bucket-${var.suffix}"
+  name          = "cloud-functions-bucket-${var.suffix}"
   location      = var.region
   storage_class = "REGIONAL"
   force_destroy = true
@@ -88,6 +88,14 @@ resource "google_storage_bucket_object" "archive" {
   source = data.archive_file.default.output_path # Path to the zipped function source code
 }
 
+data "google_project" "project" {
+}
+resource "google_project_iam_member" "add_publisher_role" {
+  project = var.project_id
+  role    = "roles/pubsub.publisher"                                                                                              # Replace with the desired role
+  member  = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-monitoring-notification.iam.gserviceaccount.com" # Replace with the service account email
+}
+
 resource "google_cloudfunctions2_function" "default" {
   name        = "ModelRetrainingFunction"
   location    = "us-central1"
@@ -95,7 +103,7 @@ resource "google_cloudfunctions2_function" "default" {
 
   build_config {
     runtime     = "python310"
-    entry_point = "compile_pipeline" 
+    entry_point = "compile_pipeline"
 
     source {
       storage_source {
@@ -106,20 +114,20 @@ resource "google_cloudfunctions2_function" "default" {
   }
 
   service_config {
-    max_instance_count = 3
-    min_instance_count = 1
-    available_memory   = "1000M"
-    timeout_seconds    = 60
+    max_instance_count             = 3
+    min_instance_count             = 1
+    available_memory               = "1000M"
+    timeout_seconds                = 60
     all_traffic_on_latest_revision = true
     service_account_email          = var.service_account
     environment_variables = {
-    PROJECT_ID = var.project_id,
-    BQ_DATASET = google_bigquery_dataset.example_dataset.dataset_id,
-    TEST_BQ_TABLE = var.test_bq_table,
-    TRAIN_BQ_TABLE = var.train_bq_table,
-    ENDPOINT = google_vertex_ai_endpoint.endpoint.id,
-    SERVICE_ACCOUNT = var.service_account,
-  }
+      PROJECT_ID      = var.project_id,
+      BQ_DATASET      = google_bigquery_dataset.example_dataset.dataset_id,
+      TEST_BQ_TABLE   = var.test_bq_table,
+      TRAIN_BQ_TABLE  = var.train_bq_table,
+      ENDPOINT        = google_vertex_ai_endpoint.endpoint.id,
+      SERVICE_ACCOUNT = var.service_account,
+    }
   }
 
   event_trigger {
