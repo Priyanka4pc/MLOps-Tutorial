@@ -92,7 +92,7 @@ data "google_project" "project" {
 }
 resource "google_project_iam_member" "add_publisher_role" {
   project = var.project_id
-  role    = "roles/pubsub.publisher"                                                                                              # Replace with the desired role
+  role    = "roles/pubsub.publisher"
   member  = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-monitoring-notification.iam.gserviceaccount.com" # Replace with the service account email
 }
 
